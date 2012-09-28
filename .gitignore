@@ -1,0 +1,13 @@
+build
+~
+.*.swp
+cscope.files
+cscope.out
+# CMake:
+Makefile
+CMakeCache.txt
+CMakeFiles
+cmake_install.cmake
+CTestTestfile.cmake
+!CMakeLists.txt
+
