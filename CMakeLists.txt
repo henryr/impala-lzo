@@ -38,7 +38,7 @@ include_directories($ENV{IMPALA_HOME}/thirdparty)
 include_directories($ENV{IMPALA_HOME}/thirdparty/hadoop-$ENV{IMPALA_HADOOP_VERSION}/include)
 include_directories($ENV{IMPALA_HOME}/thirdparty/glog-$ENV{IMPALA_GLOG_VERSION}/src)
 include_directories($ENV{IMPALA_HOME}/thirdparty/gflags-$ENV{IMPALA_GFLAGS_VERSION}/src)
-include_directories(${Thrift_INCLUDE_DIR})
+include_directories(${THRIFT_INCLUDE_DIR})
 
 message(STATUS "LZO lib: ${LZO_STATIC_LIB}")
 add_library(impalalzo SHARED
