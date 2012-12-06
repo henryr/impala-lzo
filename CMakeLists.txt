@@ -3,6 +3,8 @@
 cmake_minimum_required(VERSION 2.6)
 
 set(CMAKE_MODULE_PATH cmake_modules)
+SET(CXX_COMMON_FLAGS "-msse4.2 -Wall -Wno-sign-compare -pthread")
+SET(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} -DBOOST_DATE_TIME_POSIX_TIME_STD_CONFIG")
 SET(CXX_FLAGS_DEBUG "-ggdb -Wall")
 SET(CXX_FLAGS_RELEASE "-O3 -g -DNDEBUG -Wno-strict-aliasing")
 
@@ -16,6 +18,8 @@ if ("${CMAKE_BUILD_TYPE}" STREQUAL "DEBUG")
 elseif ("${CMAKE_BUILD_TYPE}" STREQUAL "RELEASE")
   SET(CMAKE_CXX_FLAGS ${CXX_FLAGS_RELEASE})
 endif()
+
+SET(CMAKE_CXX_FLAGS "${CXX_COMMON_FLAGS} ${CMAKE_CXX_FLAGS}")
 
 # Locate the LZO compression library.
 find_package(Lzo REQUIRED)
