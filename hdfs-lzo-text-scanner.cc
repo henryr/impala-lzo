@@ -33,6 +33,8 @@
 #include "util/debug-util.h"
 #include "util/hdfs-util.h"
 
+#include "gen-cpp/Descriptors_types.h"
+
 using namespace boost;
 using namespace boost::algorithm;
 using namespace impala;
@@ -79,7 +81,7 @@ HdfsLzoTextScanner::~HdfsLzoTextScanner() {
 Status HdfsLzoTextScanner::Close() {
   if (!only_parsing_header_) {
     context_->AcquirePool(block_buffer_pool_.get());
-    scan_node_->RangeComplete();
+    scan_node_->RangeComplete(THdfsFileFormat::LZO_TEXT, THdfsCompression::NONE);
   }
   only_parsing_header_ = false;
   context_->Complete();
@@ -141,7 +143,7 @@ Status HdfsLzoTextScanner::IssueFileRanges(const char* filename) {
     for (int j = 0; j < ranges.size(); ++j) {
       if (ranges[j]->offset() != 0) {
         // Mark the other initial ranges complete
-        scan_node_->RangeComplete();
+        scan_node_->RangeComplete(THdfsFileFormat::LZO_TEXT, THdfsCompression::NONE);
         continue;
       }
       int64_t partition_id = reinterpret_cast<int64_t>(file_desc->ranges[0]->meta_data());
