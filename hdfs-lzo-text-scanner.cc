@@ -81,10 +81,10 @@ HdfsLzoTextScanner::~HdfsLzoTextScanner() {
 Status HdfsLzoTextScanner::Close() {
   if (!only_parsing_header_) {
     context_->AcquirePool(block_buffer_pool_.get());
-    scan_node_->RangeComplete(THdfsFileFormat::LZO_TEXT, THdfsCompression::NONE);
   }
   only_parsing_header_ = false;
-  context_->Complete();
+  context_->Flush();
+  scan_node_->RangeComplete(THdfsFileFormat::LZO_TEXT, THdfsCompression::NONE);
   return Status::OK;
 }
 
