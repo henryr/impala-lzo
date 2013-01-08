@@ -79,12 +79,11 @@ HdfsLzoTextScanner::~HdfsLzoTextScanner() {
 }
 
 Status HdfsLzoTextScanner::Close() {
-  if (!only_parsing_header_) {
-    context_->AcquirePool(block_buffer_pool_.get());
-  }
-  only_parsing_header_ = false;
+  context_->AcquirePool(block_buffer_pool_.get());
   context_->Flush();
-  scan_node_->RangeComplete(THdfsFileFormat::LZO_TEXT, THdfsCompression::NONE);
+  if (!only_parsing_header_) {
+    scan_node_->RangeComplete(THdfsFileFormat::LZO_TEXT, THdfsCompression::NONE);
+  }
   return Status::OK;
 }
 
@@ -105,6 +104,7 @@ Status HdfsLzoTextScanner::ProcessScanRange(ScanRangeContext* context) {
     scan_node_->SetFileMetadata(context->filename(), header_);
     return IssueFileRanges(context->filename());
   }
+  only_parsing_header_ = false;
 
   if (context->scan_range()->offset() == 0) {
     Status status;
