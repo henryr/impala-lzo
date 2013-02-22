@@ -51,7 +51,7 @@
 //
 namespace impala {
 
-class ScanRangeContext;
+class ScannerContext;
 class HdfsLzoTextScanner;
 
 // HdfsScanner implementation that reads LZOP formatted text files.
@@ -91,7 +91,7 @@ class HdfsLzoTextScanner : public HdfsTextScanner {
 
   // This will read the header of the file, locate the index file and
   // then fire off the rest of the scan ranges.
-  virtual Status ProcessScanRange(ScanRangeContext* context);
+  virtual Status ProcessSplit(ScannerContext* context);
 
   // Issue the initial scan ranges for all lzo-text files. This reads the
   // file headers and then the reset of the file data will be issued from

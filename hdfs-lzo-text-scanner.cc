@@ -23,11 +23,8 @@
 #include <dlfcn.h>
 #include <boost/algorithm/string.hpp>
 #include "hdfs-lzo-text-scanner.h"
-#include "exec/byte-stream.h"
 #include "exec/hdfs-scan-node.h"
-#include "exec/scan-range-context.h"
-#include "exec/serde-utils.h"
-#include "exec/serde-utils.inline.h"
+#include "exec/scanner-context.inline.h"
 #include "runtime/runtime-state.h"
 #include "runtime/hdfs-fs-cache.h"
 #include "util/debug-util.h"
@@ -81,18 +78,18 @@ HdfsLzoTextScanner::~HdfsLzoTextScanner() {
 
 Status HdfsLzoTextScanner::Close() {
   context_->AcquirePool(block_buffer_pool_.get());
-  context_->Flush();
+  context_->Close();
   if (!only_parsing_header_) {
     scan_node_->RangeComplete(THdfsFileFormat::LZO_TEXT, THdfsCompression::NONE);
   }
   return Status::OK;
 }
 
-Status HdfsLzoTextScanner::ProcessScanRange(ScanRangeContext* context) {
-  context_ = context;
+Status HdfsLzoTextScanner::ProcessSplit(ScannerContext* context) {
+  SetContext(context);
   past_eosr_ = false;
   header_ = reinterpret_cast<LzoFileHeader*>(
-      scan_node_->GetFileMetadata(context->filename()));
+      scan_node_->GetFileMetadata(stream_->filename()));
   if (header_ == NULL) {
     // This is the initial scan range just to parse the header
     only_parsing_header_ = true;
@@ -102,20 +99,20 @@ Status HdfsLzoTextScanner::ProcessScanRange(ScanRangeContext* context) {
     RETURN_IF_ERROR(ReadIndexFile());
 
     // Header is parsed, set the metadata in the scan node.
-    scan_node_->SetFileMetadata(context->filename(), header_);
-    return IssueFileRanges(context->filename());
+    scan_node_->SetFileMetadata(stream_->filename(), header_);
+    return IssueFileRanges(stream_->filename());
   }
   only_parsing_header_ = false;
 
-  if (context->scan_range()->offset() == 0) {
+  if (stream_->scan_range()->offset() == 0) {
     Status status;
-    SerDeUtils::SkipBytes(context, header_->header_size_, &status);
+    stream_->SkipBytes(header_->header_size_, &status);
   } else {
     DCHECK(!header_->offsets.empty());
     RETURN_IF_ERROR(FindFirstBlock());
   }
 
-  RETURN_IF_ERROR(HdfsTextScanner::ProcessScanRange(context));
+  RETURN_IF_ERROR(HdfsTextScanner::ProcessSplit(context));
   return Status::OK;
 }
 
@@ -128,7 +125,7 @@ void HdfsLzoTextScanner::IssueInitialRanges(HdfsScanNode* scan_node,
     // These files should be filtered by the planner.
     DCHECK(!ends_with(files[i]->filename, INDEX_SUFFIX));
 
-    int64_t partition_id = reinterpret_cast<int64_t>(files[i]->ranges[0]->meta_data());
+    int64_t partition_id = reinterpret_cast<int64_t>(files[i]->splits[0]->meta_data());
     DiskIoMgr::ScanRange* header_range = scan_node->AllocateScanRange(
         files[i]->filename.c_str(), HEADER_SIZE, 0, partition_id, -1);
     scan_node->AddDiskIoRange(header_range);
@@ -140,14 +137,14 @@ Status HdfsLzoTextScanner::IssueFileRanges(const char* filename) {
   if (header_->offsets.empty()) {
     // If offsets is empty then there was on index file.  The file cannot be split.
     // If this contains the range starting at offset 0 generate a scan for whole file.
-    const vector<DiskIoMgr::ScanRange*>& ranges = file_desc->ranges;
-    for (int j = 0; j < ranges.size(); ++j) {
-      if (ranges[j]->offset() != 0) {
-        // Mark the other initial ranges complete
+    const vector<DiskIoMgr::ScanRange*>& splits = file_desc->splits;
+    for (int j = 0; j < splits.size(); ++j) {
+      if (splits[j]->offset() != 0) {
+        // Mark the other initial splits complete
         scan_node_->RangeComplete(THdfsFileFormat::LZO_TEXT, THdfsCompression::NONE);
         continue;
       }
-      int64_t partition_id = reinterpret_cast<int64_t>(file_desc->ranges[0]->meta_data());
+      int64_t partition_id = reinterpret_cast<int64_t>(file_desc->splits[0]->meta_data());
       int64_t filesize;
       RETURN_IF_ERROR(GetFileSize(scan_node_->hdfs_connection(), filename, &filesize));
       DiskIoMgr::ScanRange* range = scan_node_->AllocateScanRange(
@@ -161,7 +158,7 @@ Status HdfsLzoTextScanner::IssueFileRanges(const char* filename) {
 }
 
 Status HdfsLzoTextScanner::ReadIndexFile() {
-  string index_filename(context_->filename());
+  string index_filename(stream_->filename());
   index_filename.append(INDEX_SUFFIX);
 
   hdfsFS connection = scan_node_->hdfs_connection();
@@ -169,7 +166,7 @@ Status HdfsLzoTextScanner::ReadIndexFile() {
   // If there is no index file we can read the file by starting at the beginning
   // and reading through to the end.
   if (hdfsExists(connection, index_filename.c_str()) != 0) {
-    LOG(WARNING) << "No index file for: " << context_->filename()
+    LOG(WARNING) << "No index file for: " << stream_->filename()
                  << ". Split scans are not possible.";
     return Status::OK;
   }
@@ -217,7 +214,7 @@ Status HdfsLzoTextScanner::ReadIndexFile() {
 }
 
 Status HdfsLzoTextScanner::FindFirstBlock() {
-  int64_t offset = context_->file_offset();
+  int64_t offset = stream_->file_offset();
 
   // Find the first block at or after the current file offset.  That way the
   // scan will start, or restart, on a block boundary.
@@ -226,15 +223,15 @@ Status HdfsLzoTextScanner::FindFirstBlock() {
 
   if (pos == header_->offsets.end()) {
     stringstream ss;
-    ss << "No block index for " << context_->filename() << " after offset: " << offset;
+    ss << "No block index for " << stream_->filename() << " after offset: " << offset;
     if (state_->LogHasSpace()) state_->LogError(ss.str());
     return Status(ss.str());
   }
 
-  VLOG_ROW << "First Block: " << context_->filename()
+  VLOG_ROW << "First Block: " << stream_->filename()
            << " for " << offset << " @" << *pos;
   Status status;
-  SerDeUtils::SkipBytes(context_, *pos - offset, &status);
+  stream_->SkipBytes(*pos - offset, &status);
   return status;
 }
 
@@ -255,7 +252,7 @@ Status HdfsLzoTextScanner::ReadData() {
       bytes_remaining_ = 0;
       return Status::OK;
     }
-  } while (!context_->eosr());
+  } while (!stream_->eosr());
 
   // Reset the scanner state.
   HdfsTextScanner::ResetScanner();
@@ -265,14 +262,14 @@ Status HdfsLzoTextScanner::ReadData() {
 Status HdfsLzoTextScanner::FillByteBuffer(bool* eosr, int num_bytes) {
   *eosr = false;
 
-  if (context_->eosr()) {
+  if (stream_->eosr()) {
     // Set the read size to be the biggest a block could be. This needs
     // to be done here because the text scanner will set it to something
     // smaller during initialization.
-    context_->set_read_past_buffer_size(MAX_BLOCK_COMPRESSED_SIZE);
+    stream_->set_read_past_buffer_size(MAX_BLOCK_COMPRESSED_SIZE);
     past_eosr_ = true;
-    VLOG_ROW << "Reading past eosr: " << context_->filename()
-             << " @" << context_->file_offset();
+    VLOG_ROW << "Reading past eosr: " << stream_->filename()
+             << " @" << stream_->file_offset();
   }
 
   byte_buffer_read_size_ = 0;
@@ -315,8 +312,8 @@ Status HdfsLzoTextScanner::FillByteBuffer(bool* eosr, int num_bytes) {
   *eosr = past_eosr_ || (eos_read_ && bytes_remaining_ == 0);
 
   if (VLOG_ROW_IS_ON && *eosr) {
-    VLOG_ROW << "Returning eosr for: " << context_->filename()
-             << " @" << context_->file_offset();
+    VLOG_ROW << "Returning eosr for: " << stream_->filename()
+             << " @" << stream_->file_offset();
   }
   return Status::OK;
 }
@@ -346,8 +343,8 @@ Status HdfsLzoTextScanner::Checksum(LzoChecksum type, const string& source,
 
   if (calculated_checksum != expected_checksum) {
     stringstream ss;
-    ss << "Checksum of " << source << " block failed on file: " << context_->filename()
-       << " at offset: " << context_->file_offset() - length
+    ss << "Checksum of " << source << " block failed on file: " << stream_->filename()
+       << " at offset: " << stream_->file_offset() - length
        << " expected: " << expected_checksum << " got: " << calculated_checksum;
     if (state_->LogHasSpace()) state_->LogError(ss.str());
     return Status(ss.str());
@@ -361,12 +358,12 @@ Status HdfsLzoTextScanner::ReadHeader() {
   bool eos;
   Status status;
   // Read the header in. HEADER_SIZE over estimates the maximum header.
-  context_->GetBytes(&magic, HEADER_SIZE, &num_read, &eos, &status);
+  stream_->GetBytes(HEADER_SIZE, &magic, &num_read, &eos, &status);
   RETURN_IF_ERROR(status);
 
   if (num_read < MIN_HEADER_SIZE) {
     stringstream ss;
-    ss << "Read only " << num_read << " bytes from " << context_->filename();
+    ss << "Read only " << num_read << " bytes from " << stream_->filename();
     return Status(ss.str());
   }
 
@@ -459,19 +456,19 @@ Status HdfsLzoTextScanner::ReadHeader() {
   if (flags & F_H_EXTRA_FIELD) {
     int32_t len;
     Status status;
-    SerDeUtils::ReadInt(context_, &len, &status);
+    stream_->ReadInt(&len, &status);
     RETURN_IF_ERROR(status);
     // Add the size of the len and the checksum and the len to the total h_ptr size.
     h_ptr += (2 * sizeof(int32_t)) + len;
   }
 
-  VLOG_FILE << "Reading: " << context_->filename() << " Header: version: " << version 
+  VLOG_FILE << "Reading: " << stream_->filename() << " Header: version: " << version 
             << "(" << libversion << "/" << neededversion << ")"
             << " method: " << (int)method << "@" << (int)level
             << " flags: " << flags;
   if (!status.ok()) {
     stringstream ss;
-    ss << "Invalid header information: " << context_->filename();
+    ss << "Invalid header information: " << stream_->filename();
     status.AddErrorMsg(ss.str());
     return status;
   }
@@ -487,16 +484,16 @@ Status HdfsLzoTextScanner::ReadAndDecompressData() {
   
   // Read the uncompressed
   int32_t uncompressed_len = 0, compressed_len = 0;
-  SerDeUtils::ReadInt(context_, &uncompressed_len, &status);
+  stream_->ReadInt(&uncompressed_len, &status);
   RETURN_IF_ERROR(status);
   if (uncompressed_len == 0) {
-    DCHECK(context_->eosr());
+    DCHECK(stream_->eosr());
     eos_read_ = true;
     return Status::OK;
   }
 
   // Read the compressed len
-  SerDeUtils::ReadInt(context_, &compressed_len, &status);
+  stream_->ReadInt(&compressed_len, &status);
   RETURN_IF_ERROR(status);
 
   if (compressed_len > MAX_BLOCK_SIZE) {
@@ -510,13 +507,13 @@ Status HdfsLzoTextScanner::ReadAndDecompressData() {
   int out_checksum;
   // The checksum of the uncompressed data.
   if (header_->output_checksum_type_ != CHECK_NONE) {
-    SerDeUtils::ReadInt(context_, &out_checksum, &status);
+    stream_->ReadInt(&out_checksum, &status);
     RETURN_IF_ERROR(status);
   }
   
   int in_checksum = 0;
   if (compressed_len < uncompressed_len && header_->input_checksum_type_ != CHECK_NONE) {
-    SerDeUtils::ReadInt(context_, &in_checksum, &status);
+    stream_->ReadInt(&in_checksum, &status);
     RETURN_IF_ERROR(status);
   } else {
     // If the compressed data size is equal to the uncompressed data size, then
@@ -527,7 +524,7 @@ Status HdfsLzoTextScanner::ReadAndDecompressData() {
   // Read in the compressed data
   uint8_t* compressed_data;
   int bytes_read;
-  context_->GetBytes(&compressed_data, compressed_len, &bytes_read, &eos_read_, &status);
+  stream_->GetBytes(compressed_len, &compressed_data, &bytes_read, &eos_read_, &status);
   DCHECK_EQ(compressed_len, bytes_read);
   RETURN_IF_ERROR(status);
 
@@ -543,7 +540,7 @@ Status HdfsLzoTextScanner::ReadAndDecompressData() {
     return Status::OK;
   }
 
-  if (!context_->compact_data()) {
+  if (!stream_->compact_data()) {
     context_->AcquirePool(block_buffer_pool_.get());
     block_buffer_len_ = 0;
   }
@@ -562,8 +559,8 @@ Status HdfsLzoTextScanner::ReadAndDecompressData() {
 
   if (ret != LZO_E_OK || bytes_remaining_ != uncompressed_len) {
     stringstream ss;
-    ss << "Decompression failed on file: " << context_->filename()
-       << " at offset: " << context_->file_offset() << " returned: " << ret
+    ss << "Decompression failed on file: " << stream_->filename()
+       << " at offset: " << stream_->file_offset() << " returned: " << ret
        << " output size: " << compressed_len << "expected: " << block_buffer_len_;
       state_->LogError(ss.str());
     if (state_->LogHasSpace()) state_->LogError(ss.str());
@@ -578,10 +575,9 @@ Status HdfsLzoTextScanner::ReadAndDecompressData() {
   // We fetched the next disk buffer past EOSR to complete the read of this compressed
   // block.  When the scanner finishes with the data we return here it must
   // go into Finish mode and complete its final row.
-  eos_read_ = context_->eosr();
+  eos_read_ = stream_->eosr();
   VLOG_ROW << "LZO decompressed " << uncompressed_len << " bytes from " 
-           << context_->filename() << " @" << context_->file_offset() - compressed_len;
-
+           << stream_->filename() << " @" << stream_->file_offset() - compressed_len;
   return Status::OK;
 }
 
