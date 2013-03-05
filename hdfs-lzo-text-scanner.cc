@@ -71,6 +71,8 @@ HdfsLzoTextScanner::HdfsLzoTextScanner(HdfsScanNode* scan_node, RuntimeState* st
       eos_read_(false),
       only_parsing_header_(false),
       disable_checksum_(FLAGS_disable_lzo_checksums) {
+  decompress_timer_ = ADD_COUNTER(scan_node->runtime_profile(), 
+      "DecompressionTime", TCounterType::CPU_TICKS);
 }
 
 HdfsLzoTextScanner::~HdfsLzoTextScanner() {
@@ -482,32 +484,25 @@ Status HdfsLzoTextScanner::ReadHeader() {
 
 Status HdfsLzoTextScanner::ReadAndDecompressData() {
   bytes_remaining_ = 0;
-  uint8_t* input_buffer;
-  int bytes_read;
   Status status;
-  // Read the uncompressed, compressed lengths
-  context_->GetBytes(&input_buffer,
-      2 * sizeof(int32_t), &bytes_read, &eos_read_, &status);
+  
+  // Read the uncompressed
+  int32_t uncompressed_len = 0, compressed_len = 0;
+  SerDeUtils::ReadInt(context_, &uncompressed_len, &status);
   RETURN_IF_ERROR(status);
-  if (bytes_read < 2 * sizeof(int32_t)) {
-    if (eos_read_) return Status::OK;
-    return Status("GetBytes returned too little data");
-  }
-  DCHECK_EQ(bytes_read, 2 * sizeof(int32_t));
-
-  int32_t out_length = SerDeUtils::GetInt(input_buffer);
-  input_buffer += sizeof(int32_t);
-  if (out_length == 0) {
+  if (uncompressed_len == 0) {
+    DCHECK(context_->eosr());
     eos_read_ = true;
     return Status::OK;
   }
 
-  // Length of the compressed data.
-  int32_t in_length = SerDeUtils::GetInt(input_buffer);
+  // Read the compressed len
+  SerDeUtils::ReadInt(context_, &compressed_len, &status);
+  RETURN_IF_ERROR(status);
 
-  if (in_length > MAX_BLOCK_SIZE) {
+  if (compressed_len > MAX_BLOCK_SIZE) {
     stringstream ss;
-    ss << "Blocksize: " << in_length << " is greater than MAX_BLOCK_SIZE: "
+    ss << "Blocksize: " << compressed_len << " is greater than MAX_BLOCK_SIZE: "
        << MAX_BLOCK_SIZE;
     if (state_->LogHasSpace()) state_->LogError(ss.str());
     return Status(ss.str());
@@ -520,28 +515,32 @@ Status HdfsLzoTextScanner::ReadAndDecompressData() {
     RETURN_IF_ERROR(status);
   }
   
-  // If the compressed data size was >= than the uncompressed data size then
-  // the uncompressed data is stored and there is no compressed checksum.
   int in_checksum = 0;
-  if (in_length < out_length && header_->input_checksum_type_ != CHECK_NONE) {
+  if (compressed_len < uncompressed_len && header_->input_checksum_type_ != CHECK_NONE) {
     SerDeUtils::ReadInt(context_, &in_checksum, &status);
     RETURN_IF_ERROR(status);
   } else {
+    // If the compressed data size is equal to the uncompressed data size, then
+    // the uncompressed data is stored and there is no compressed checksum.
     in_checksum = out_checksum;
   }
 
   // Read in the compressed data
-  context_->GetBytes(&input_buffer, in_length, &bytes_read, &eos_read_, &status);
+  uint8_t* compressed_data;
+  int bytes_read;
+  context_->GetBytes(&compressed_data, compressed_len, &bytes_read, &eos_read_, &status);
+  DCHECK_EQ(compressed_len, bytes_read);
   RETURN_IF_ERROR(status);
 
   // Checksum the data.
   RETURN_IF_ERROR(Checksum(header_->input_checksum_type_,
-      "compressed", in_checksum, input_buffer, in_length));
+      "compressed", in_checksum, compressed_data, compressed_len));
 
-  // If the data did not compress we are done.
-  if (in_length == out_length) {
-    block_buffer_ptr_ = input_buffer;
-    bytes_remaining_ = in_length;
+  // If the compressed length is the same as the uncompressed length, it means the data
+  // was not compressed and we are done.
+  if (compressed_len == uncompressed_len) {
+    block_buffer_ptr_ = compressed_data;
+    bytes_remaining_ = uncompressed_len;
     return Status::OK;
   }
 
@@ -549,22 +548,24 @@ Status HdfsLzoTextScanner::ReadAndDecompressData() {
     context_->AcquirePool(block_buffer_pool_.get());
     block_buffer_len_ = 0;
   }
-  if (out_length > block_buffer_len_) {
-    block_buffer_ = block_buffer_pool_->Allocate(out_length);
-    block_buffer_len_ = out_length;
+
+  if (uncompressed_len > block_buffer_len_) {
+    block_buffer_ = block_buffer_pool_->Allocate(uncompressed_len);
+    block_buffer_len_ = uncompressed_len;
   }
   block_buffer_ptr_ = block_buffer_;
-  bytes_remaining_ = out_length;
+  bytes_remaining_ = uncompressed_len;
 
   // Decompress the data.  lzop always uses lzo1x.
-  int ret = lzo1x_decompress_safe(input_buffer,
-      in_length, block_buffer_, reinterpret_cast<lzo_uint*>(&out_length), NULL);
+  SCOPED_TIMER(decompress_timer_);
+  int ret = lzo1x_decompress_safe(compressed_data, compressed_len,
+      block_buffer_, reinterpret_cast<lzo_uint*>(&uncompressed_len), NULL);
 
-  if (ret != LZO_E_OK || bytes_remaining_ != out_length) {
+  if (ret != LZO_E_OK || bytes_remaining_ != uncompressed_len) {
     stringstream ss;
     ss << "Decompression failed on file: " << context_->filename()
        << " at offset: " << context_->file_offset() << " returned: " << ret
-       << " output size: " << out_length << "expected: " << block_buffer_len_;
+       << " output size: " << compressed_len << "expected: " << block_buffer_len_;
       state_->LogError(ss.str());
     if (state_->LogHasSpace()) state_->LogError(ss.str());
     return Status(ss.str());
@@ -572,16 +573,17 @@ Status HdfsLzoTextScanner::ReadAndDecompressData() {
 
   // Do the checksum if requested.
   RETURN_IF_ERROR(Checksum(header_->output_checksum_type_,
-     "decompressed", out_checksum, block_buffer_, out_length));
+     "decompressed", out_checksum, block_buffer_, uncompressed_len));
 
   // Return end of scan range even if there are bytes in the disk buffer.
   // We fetched the next disk buffer past EOSR to complete the read of this compressed
   // block.  When the scanner finishes with the data we return here it must
   // go into Finish mode and complete its final row.
   eos_read_ = context_->eosr();
-  VLOG_ROW << "LZO decompressed " << out_length << " bytes from " << context_->filename()
-           << " @" << context_->file_offset() - in_length;
+  VLOG_ROW << "LZO decompressed " << uncompressed_len << " bytes from " 
+           << context_->filename() << " @" << context_->file_offset() - compressed_len;
 
   return Status::OK;
 }
+
 }

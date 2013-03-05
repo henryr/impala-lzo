@@ -190,6 +190,9 @@ class HdfsLzoTextScanner : public HdfsTextScanner {
   // This is set when the scanner object is constructed.  Currently always true.
   // HDFS checksums the blocks from the disk to the client, so this is redundent.
   bool disable_checksum_;
+
+  // Time spent decompressing
+  RuntimeProfile::Counter* decompress_timer_;
 };
 }
 #endif
