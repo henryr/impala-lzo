@@ -27,6 +27,8 @@ find_package(Lzo REQUIRED)
 # Locate the Thrift headers.
 find_package(Thrift REQUIRED)
 
+add_definitions(-DHAVE_INTTYPES_H -DHAVE_NETINET_IN_H)
+
 # where to put generated libraries
 set(BUILD_OUTPUT_ROOT_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/build")
 set(LIBRARY_OUTPUT_PATH "${BUILD_OUTPUT_ROOT_DIRECTORY}")
