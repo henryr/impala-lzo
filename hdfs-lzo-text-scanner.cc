@@ -71,8 +71,7 @@ HdfsLzoTextScanner::HdfsLzoTextScanner(HdfsScanNode* scan_node, RuntimeState* st
       eos_read_(false),
       only_parsing_header_(false),
       disable_checksum_(FLAGS_disable_lzo_checksums) {
-  decompress_timer_ = ADD_COUNTER(scan_node->runtime_profile(), 
-      "DecompressionTime", TCounterType::CPU_TICKS);
+  decompress_timer_ = ADD_TIMER(scan_node->runtime_profile(), "DecompressionTime");
 }
 
 HdfsLzoTextScanner::~HdfsLzoTextScanner() {
