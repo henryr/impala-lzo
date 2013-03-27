@@ -125,9 +125,10 @@ void HdfsLzoTextScanner::IssueInitialRanges(HdfsScanNode* scan_node,
     // These files should be filtered by the planner.
     DCHECK(!ends_with(files[i]->filename, INDEX_SUFFIX));
 
-    int64_t partition_id = reinterpret_cast<int64_t>(files[i]->splits[0]->meta_data());
+    ScanRangeMetadata* metadata =
+        reinterpret_cast<ScanRangeMetadata*>(files[i]->splits[0]->meta_data());
     DiskIoMgr::ScanRange* header_range = scan_node->AllocateScanRange(
-        files[i]->filename.c_str(), HEADER_SIZE, 0, partition_id, -1);
+        files[i]->filename.c_str(), HEADER_SIZE, 0, metadata->partition_id, -1);
     scan_node->AddDiskIoRange(header_range);
   }
 }
