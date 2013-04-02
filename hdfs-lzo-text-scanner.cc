@@ -190,7 +190,7 @@ Status HdfsLzoTextScanner::ReadIndexFile() {
   while ((num_read = hdfsRead(connection, index_file, buffer, read_size)) > 0) {
     DCHECK_EQ(num_read % sizeof (int64_t), 0);
     for (uint8_t* bp = buffer; bp < buffer + num_read; bp += sizeof(int64_t)) {
-      int64_t offset = SerDeUtils::GetLongInt(bp);
+      int64_t offset = ReadWriteUtil::GetLongInt(bp);
       header_->offsets.push_back(offset);
     }
   }
@@ -371,14 +371,14 @@ Status HdfsLzoTextScanner::ReadHeader() {
   if (memcmp(magic, LZOP_MAGIC, sizeof(LZOP_MAGIC))) {
     stringstream ss;
     ss << "Invalid LZOP_MAGIC: '"
-       << SerDeUtils::HexDump(magic, sizeof(LZOP_MAGIC)) << "'" << endl;
+       << ReadWriteUtil::HexDump(magic, sizeof(LZOP_MAGIC)) << "'" << endl;
     status.AddErrorMsg(ss.str());
   } 
 
   uint8_t* header = magic + sizeof(LZOP_MAGIC);
   uint8_t* h_ptr = header;
 
-  int version = SerDeUtils::GetSmallInt(h_ptr);
+  int version = ReadWriteUtil::GetSmallInt(h_ptr);
   if (version > LZOP_VERSION) {
     stringstream ss;
     ss << "Compressed with later version of lzop: " << version
@@ -387,7 +387,7 @@ Status HdfsLzoTextScanner::ReadHeader() {
   }
   h_ptr += sizeof(int16_t);
 
-  int libversion = SerDeUtils::GetSmallInt(h_ptr);
+  int libversion = ReadWriteUtil::GetSmallInt(h_ptr);
   if (libversion < MIN_LZO_VERSION) {
     stringstream ss;
     ss << "Compressed with incompatible lzo version: " << version
@@ -397,7 +397,7 @@ Status HdfsLzoTextScanner::ReadHeader() {
   h_ptr += sizeof(int16_t);
 
   // The version of LZOP needed to interpret this file.
-  int neededversion = SerDeUtils::GetSmallInt(h_ptr);
+  int neededversion = ReadWriteUtil::GetSmallInt(h_ptr);
   if (neededversion > LZOP_VERSION) {
     stringstream ss;
     ss << "Compressed with imp incompatible lzo version: " << neededversion
@@ -414,7 +414,7 @@ Status HdfsLzoTextScanner::ReadHeader() {
   }
   uint8_t level = *h_ptr++;
 
-  int flags = SerDeUtils::GetInt(h_ptr);
+  int flags = ReadWriteUtil::GetInt(h_ptr);
   LzoChecksum header_checksum = (flags & F_H_CRC32) ? CHECK_CRC32 : CHECK_ADLER;
   header_->output_checksum_type_ = (flags & F_CRC32_D) ? CHECK_CRC32 :
       (flags & F_ADLER32_D) ? CHECK_ADLER : CHECK_NONE;
@@ -435,7 +435,7 @@ Status HdfsLzoTextScanner::ReadHeader() {
   h_ptr += *h_ptr + 1;
 
   // The header always has a checksum.
-  int32_t expected_checksum = SerDeUtils::GetInt(h_ptr);
+  int32_t expected_checksum = ReadWriteUtil::GetInt(h_ptr);
   int32_t computed_checksum;
   if (header_checksum == CHECK_CRC32) {
     computed_checksum = CRC32_INIT_VALUE;
