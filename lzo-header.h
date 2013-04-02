@@ -36,7 +36,7 @@
 #define MIN_ZOP_VERSION 0x0900
 #define LZOP_VERSION 0x1030
 
-#define MAX_BLOCK_SIZE      (64*1024l*1024l)
+#define LZO_MAX_BLOCK_SIZE      (64*1024l*1024l)
 
 /*************************************************************************
 // lzop file header

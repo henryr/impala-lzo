@@ -497,10 +497,10 @@ Status HdfsLzoTextScanner::ReadAndDecompressData() {
   stream_->ReadInt(&compressed_len, &status);
   RETURN_IF_ERROR(status);
 
-  if (compressed_len > MAX_BLOCK_SIZE) {
+  if (compressed_len > LZO_MAX_BLOCK_SIZE) {
     stringstream ss;
-    ss << "Blocksize: " << compressed_len << " is greater than MAX_BLOCK_SIZE: "
-       << MAX_BLOCK_SIZE;
+    ss << "Blocksize: " << compressed_len << " is greater than LZO_MAX_BLOCK_SIZE: "
+       << LZO_MAX_BLOCK_SIZE;
     if (state_->LogHasSpace()) state_->LogError(ss.str());
     return Status(ss.str());
   }
