@@ -145,11 +145,10 @@ Status HdfsLzoTextScanner::IssueFileRanges(const char* filename) {
         scan_node_->RangeComplete(THdfsFileFormat::LZO_TEXT, THdfsCompression::NONE);
         continue;
       }
-      int64_t partition_id = reinterpret_cast<int64_t>(file_desc->splits[0]->meta_data());
-      int64_t filesize;
-      RETURN_IF_ERROR(GetFileSize(scan_node_->hdfs_connection(), filename, &filesize));
+      ScanRangeMetadata* metadata =
+          reinterpret_cast<ScanRangeMetadata*>(file_desc->splits[0]->meta_data());
       DiskIoMgr::ScanRange* range = scan_node_->AllocateScanRange(
-          filename, filesize, 0, partition_id, -1);
+          filename, file_desc->file_length, 0, metadata->partition_id, -1);
       scan_node_->AddDiskIoRange(range);
     }
   } else {
