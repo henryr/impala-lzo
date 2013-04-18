@@ -5,6 +5,7 @@
 
 #include "lzo-header.h"
 #include <boost/thread/locks.hpp>
+#include "common/version.h"
 #include "exec/hdfs-text-scanner.h"
 #include "runtime/string-buffer.h"
 
@@ -65,6 +66,11 @@ class HdfsLzoTextScanner;
 // find the next block.
 // If there is no index file then the file is non-splittble. A single scan range
 // will be issued for the whole file and no error recovery is done.
+
+
+// Used to verify that this library was built against the expected Impala version when the
+// library is loaded via dlopen.
+extern "C" const char* GetImpalaBuildVersion() { return IMPALA_BUILD_VERSION; }
 
 // The two functions below are wrappers for calling methods of HdfsLzoTextScanner
 // when the library is loaded via dlopen.
