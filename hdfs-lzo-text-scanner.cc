@@ -82,6 +82,8 @@ Status HdfsLzoTextScanner::Close() {
   if (!only_parsing_header_) {
     scan_node_->RangeComplete(THdfsFileFormat::LZO_TEXT, THdfsCompression::NONE);
   }
+  scan_node_->ReleaseCodegenFn(THdfsFileFormat::LZO_TEXT, codegen_fn_);
+  codegen_fn_ = NULL;
   return Status::OK;
 }
 
