@@ -263,6 +263,12 @@ Status HdfsLzoTextScanner::ReadData() {
 
 Status HdfsLzoTextScanner::FillByteBuffer(bool* eosr, int num_bytes) {
   *eosr = false;
+  byte_buffer_read_size_ = 0;
+
+  if (stream_->eof()) {
+    *eosr = true;
+    return Status::OK;
+  }
 
   if (stream_->eosr()) {
     // Set the read size to be the biggest a block could be. This needs
@@ -274,7 +280,6 @@ Status HdfsLzoTextScanner::FillByteBuffer(bool* eosr, int num_bytes) {
              << " @" << stream_->file_offset();
   }
 
-  byte_buffer_read_size_ = 0;
   // Figure out if we have enough data and read more if necessary.
   if ((num_bytes == 0 && bytes_remaining_ == 0) || num_bytes > bytes_remaining_) {
     // Read and decompress the next block.
