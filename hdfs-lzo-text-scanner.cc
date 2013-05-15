@@ -77,7 +77,8 @@ HdfsLzoTextScanner::~HdfsLzoTextScanner() {
 }
 
 Status HdfsLzoTextScanner::Close() {
-  context_->AcquirePool(block_buffer_pool_.get());
+  AttachPool(block_buffer_pool_.get());
+  AddFinalRowBatch();
   context_->Close();
   if (!only_parsing_header_) {
     scan_node_->RangeComplete(THdfsFileFormat::LZO_TEXT, THdfsCompression::NONE);
@@ -87,8 +88,7 @@ Status HdfsLzoTextScanner::Close() {
   return Status::OK;
 }
 
-Status HdfsLzoTextScanner::ProcessSplit(ScannerContext* context) {
-  SetContext(context);
+Status HdfsLzoTextScanner::ProcessSplit() {
   past_eosr_ = false;
   header_ = reinterpret_cast<LzoFileHeader*>(
       scan_node_->GetFileMetadata(stream_->filename()));
@@ -114,7 +114,7 @@ Status HdfsLzoTextScanner::ProcessSplit(ScannerContext* context) {
     RETURN_IF_ERROR(FindFirstBlock());
   }
 
-  RETURN_IF_ERROR(HdfsTextScanner::ProcessSplit(context));
+  RETURN_IF_ERROR(HdfsTextScanner::ProcessSplit());
   return Status::OK;
 }
 
@@ -548,7 +548,7 @@ Status HdfsLzoTextScanner::ReadAndDecompressData() {
   }
 
   if (!stream_->compact_data()) {
-    context_->AcquirePool(block_buffer_pool_.get());
+    AttachPool(block_buffer_pool_.get());
     block_buffer_len_ = 0;
   }
 
