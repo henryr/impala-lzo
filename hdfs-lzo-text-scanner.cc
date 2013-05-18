@@ -61,7 +61,7 @@ namespace impala {
 
 HdfsLzoTextScanner::HdfsLzoTextScanner(HdfsScanNode* scan_node, RuntimeState* state)
     : HdfsTextScanner(scan_node, state),
-      block_buffer_pool_(new MemPool()),
+      block_buffer_pool_(new MemPool(state->mem_limits())),
       block_buffer_len_(0),
       bytes_remaining_(0),
       past_eosr_(false),
