@@ -154,7 +154,7 @@ Status HdfsLzoTextScanner::IssueFileRanges(const char* filename) {
       scan_node_->AddDiskIoRange(range);
     }
   } else {
-    scan_node_->AddDiskIoRange(file_desc);
+    scan_node_->AddDiskIoRanges(file_desc);
   }
   return Status::OK;
 }
