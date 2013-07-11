@@ -84,7 +84,7 @@ extern "C" HdfsLzoTextScanner* GetLzoTextScanner(
 // This function is a wrapper for HdfsLzoTextScanner::IssueInitialRanges.
 // scan_node -- scan node for this scan
 // files -- files that are to be scanned.
-extern "C" void IssueInitialRanges(
+extern "C" Status IssueInitialRanges(
     HdfsScanNode* scan_node, const std::vector<HdfsFileDesc*>& files);
 
 class HdfsLzoTextScanner : public HdfsTextScanner {
@@ -102,7 +102,7 @@ class HdfsLzoTextScanner : public HdfsTextScanner {
   // Issue the initial scan ranges for all lzo-text files. This reads the
   // file headers and then the reset of the file data will be issued from
   // ProcessScanRange.
-  static void IssueInitialRanges(
+  static Status IssueInitialRanges(
       HdfsScanNode* scan_node, const std::vector<HdfsFileDesc*>& files);
 
  private:

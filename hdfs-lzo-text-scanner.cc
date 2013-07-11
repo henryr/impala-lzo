@@ -52,9 +52,9 @@ extern "C" HdfsLzoTextScanner* CreateLzoTextScanner(
   return new HdfsLzoTextScanner(scan_node, state);
 }
 
-extern "C" void IssueInitialRanges(HdfsScanNode* scan_node,
+extern "C" Status IssueInitialRanges(HdfsScanNode* scan_node,
     const vector<HdfsFileDesc*>& files) {
-  HdfsLzoTextScanner::IssueInitialRanges(scan_node, files);
+  return HdfsLzoTextScanner::IssueInitialRanges(scan_node, files);
 }
 
 namespace impala {
@@ -118,8 +118,9 @@ Status HdfsLzoTextScanner::ProcessSplit() {
   return Status::OK;
 }
 
-void HdfsLzoTextScanner::IssueInitialRanges(HdfsScanNode* scan_node,
+Status HdfsLzoTextScanner::IssueInitialRanges(HdfsScanNode* scan_node,
     const vector<HdfsFileDesc*>& files) {
+  vector<DiskIoMgr::ScanRange*> header_ranges;
   // Issue just the header range for each file.  When the header is complete,
   // we'll issue the ranges for that file.  Read the minimum header size plus
   // up to 255 bytes of optional file name.
@@ -131,8 +132,10 @@ void HdfsLzoTextScanner::IssueInitialRanges(HdfsScanNode* scan_node,
         reinterpret_cast<ScanRangeMetadata*>(files[i]->splits[0]->meta_data());
     DiskIoMgr::ScanRange* header_range = scan_node->AllocateScanRange(
         files[i]->filename.c_str(), HEADER_SIZE, 0, metadata->partition_id, -1);
-    scan_node->AddDiskIoRange(header_range);
+    header_ranges.push_back(header_range);
   }
+  RETURN_IF_ERROR(scan_node->AddDiskIoRanges(header_ranges));
+  return Status::OK;
 }
 
 Status HdfsLzoTextScanner::IssueFileRanges(const char* filename) {
@@ -141,6 +144,7 @@ Status HdfsLzoTextScanner::IssueFileRanges(const char* filename) {
     // If offsets is empty then there was on index file.  The file cannot be split.
     // If this contains the range starting at offset 0 generate a scan for whole file.
     const vector<DiskIoMgr::ScanRange*>& splits = file_desc->splits;
+    vector<DiskIoMgr::ScanRange*> ranges;
     for (int j = 0; j < splits.size(); ++j) {
       if (splits[j]->offset() != 0) {
         // Mark the other initial splits complete
@@ -151,8 +155,9 @@ Status HdfsLzoTextScanner::IssueFileRanges(const char* filename) {
           reinterpret_cast<ScanRangeMetadata*>(file_desc->splits[0]->meta_data());
       DiskIoMgr::ScanRange* range = scan_node_->AllocateScanRange(
           filename, file_desc->file_length, 0, metadata->partition_id, -1);
-      scan_node_->AddDiskIoRange(range);
+      ranges.push_back(range);
     }
+    scan_node_->AddDiskIoRanges(ranges);
   } else {
     scan_node_->AddDiskIoRanges(file_desc);
   }
