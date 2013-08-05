@@ -118,7 +118,7 @@ class HdfsLzoTextScanner : public HdfsTextScanner {
   // Block size in bytes used by LZOP. The compressed blocks will be no bigger than this.
   const static int MAX_BLOCK_COMPRESSED_SIZE = (256 * 1024);
 
-  // This is the fixed size of the header. It can have up to 255 bytes of 
+  // This is the fixed size of the header. It can have up to 255 bytes of
   // file name in it as well.
   const static int MIN_HEADER_SIZE = 32;
 
@@ -133,7 +133,7 @@ class HdfsLzoTextScanner : public HdfsTextScanner {
 
     uint32_t header_size_;
 
-    // Offsets to compressed blocks. 
+    // Offsets to compressed blocks.
     std::vector<int64_t> offsets;
   };
 
@@ -154,7 +154,8 @@ class HdfsLzoTextScanner : public HdfsTextScanner {
   Status ReadIndexFile();
 
   // Adjust the context_ to the first block at or after the current context offset.
-  Status FindFirstBlock();
+  // *found returns if a starting block was found.
+  Status FindFirstBlock(bool* found);
 
   // Issue the full file ranges after reading the headers.
   Status IssueFileRanges(const char* filename);
