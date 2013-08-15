@@ -64,7 +64,6 @@ HdfsLzoTextScanner::HdfsLzoTextScanner(HdfsScanNode* scan_node, RuntimeState* st
       block_buffer_pool_(new MemPool(state->mem_limits())),
       block_buffer_len_(0),
       bytes_remaining_(0),
-      past_eosr_(false),
       eos_read_(false),
       only_parsing_header_(false),
       disable_checksum_(FLAGS_disable_lzo_checksums) {
@@ -89,7 +88,6 @@ Status HdfsLzoTextScanner::Close() {
 }
 
 Status HdfsLzoTextScanner::ProcessSplit() {
-  past_eosr_ = false;
   header_ = reinterpret_cast<LzoFileHeader*>(
       scan_node_->GetFileMetadata(stream_->filename()));
   if (header_ == NULL) {
@@ -296,7 +294,6 @@ Status HdfsLzoTextScanner::FillByteBuffer(bool* eosr, int num_bytes) {
     // to be done here because the text scanner will set it to something
     // smaller during initialization.
     stream_->set_read_past_buffer_size(MAX_BLOCK_COMPRESSED_SIZE);
-    past_eosr_ = true;
     VLOG_ROW << "Reading past eosr: " << stream_->filename()
              << " @" << stream_->file_offset();
   }
@@ -335,7 +332,7 @@ Status HdfsLzoTextScanner::FillByteBuffer(bool* eosr, int num_bytes) {
     block_buffer_ptr_ += byte_buffer_read_size_;
   }
 
-  *eosr = past_eosr_ || (eos_read_ && bytes_remaining_ == 0);
+  *eosr = stream_->eosr() || (eos_read_ && bytes_remaining_ == 0);
 
   if (VLOG_ROW_IS_ON && *eosr) {
     VLOG_ROW << "Returning eosr for: " << stream_->filename()
@@ -381,10 +378,9 @@ Status HdfsLzoTextScanner::Checksum(LzoChecksum type, const string& source,
 Status HdfsLzoTextScanner::ReadHeader() {
   uint8_t* magic;
   int num_read;
-  bool eos;
   Status status;
   // Read the header in. HEADER_SIZE over estimates the maximum header.
-  stream_->GetBytes(HEADER_SIZE, &magic, &num_read, &eos, &status);
+  stream_->GetBytes(HEADER_SIZE, &magic, &num_read, &status);
   RETURN_IF_ERROR(status);
 
   if (num_read < MIN_HEADER_SIZE) {
@@ -550,8 +546,9 @@ Status HdfsLzoTextScanner::ReadAndDecompressData() {
   // Read in the compressed data
   uint8_t* compressed_data;
   int bytes_read;
-  stream_->GetBytes(compressed_len, &compressed_data, &bytes_read, &eos_read_, &status);
+  stream_->GetBytes(compressed_len, &compressed_data, &bytes_read, &status);
   DCHECK_EQ(compressed_len, bytes_read);
+  eos_read_ = stream_->eosr();
   RETURN_IF_ERROR(status);
 
   // Checksum the data.

@@ -184,10 +184,6 @@ class HdfsLzoTextScanner : public HdfsTextScanner {
   // Bytes remaining in the block_buffer.
   int bytes_remaining_;
 
-  // True if we have read the compressed block past the end of the scan.
-  // If set then we return eos to the caller even if there are bytes in the buffer.
-  bool past_eosr_;
-
   // True if the end of scan has been read.
   bool eos_read_;
 
