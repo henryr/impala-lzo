@@ -88,6 +88,8 @@ Status HdfsLzoTextScanner::Close() {
 }
 
 Status HdfsLzoTextScanner::ProcessSplit() {
+  stream_->set_read_past_size_cb(&HdfsLzoTextScanner::MaxBlockCompressedSize);
+
   header_ = reinterpret_cast<LzoFileHeader*>(
       scan_node_->GetFileMetadata(stream_->filename()));
   if (header_ == NULL) {
@@ -287,15 +289,6 @@ Status HdfsLzoTextScanner::FillByteBuffer(bool* eosr, int num_bytes) {
   if (stream_->eof()) {
     *eosr = true;
     return Status::OK;
-  }
-
-  if (stream_->eosr()) {
-    // Set the read size to be the biggest a block could be. This needs
-    // to be done here because the text scanner will set it to something
-    // smaller during initialization.
-    stream_->set_read_past_buffer_size(MAX_BLOCK_COMPRESSED_SIZE);
-    VLOG_ROW << "Reading past eosr: " << stream_->filename()
-             << " @" << stream_->file_offset();
   }
 
   // Figure out if we have enough data and read more if necessary.
