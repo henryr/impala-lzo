@@ -169,6 +169,11 @@ class HdfsLzoTextScanner : public HdfsTextScanner {
   // Read compress data and recover from errosr.
   Status ReadData();
 
+  // Callback for stream_ to determine how much to read past the scan range.
+  static int MaxBlockCompressedSize(int64_t file_offset) {
+    return MAX_BLOCK_COMPRESSED_SIZE;
+  }
+
   // Pool for allocating the block_buffer_.
   boost::scoped_ptr<MemPool> block_buffer_pool_;
 
