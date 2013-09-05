@@ -73,7 +73,7 @@ HdfsLzoTextScanner::HdfsLzoTextScanner(HdfsScanNode* scan_node, RuntimeState* st
 HdfsLzoTextScanner::~HdfsLzoTextScanner() {
 }
 
-Status HdfsLzoTextScanner::Close() {
+void HdfsLzoTextScanner::Close() {
   AttachPool(block_buffer_pool_.get());
   AttachPool(boundary_mem_pool_.get());
   AddFinalRowBatch();
@@ -83,7 +83,6 @@ Status HdfsLzoTextScanner::Close() {
   }
   scan_node_->ReleaseCodegenFn(THdfsFileFormat::TEXT, codegen_fn_);
   codegen_fn_ = NULL;
-  return Status::OK;
 }
 
 Status HdfsLzoTextScanner::ProcessSplit() {
