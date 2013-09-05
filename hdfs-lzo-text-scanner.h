@@ -93,7 +93,7 @@ class HdfsLzoTextScanner : public HdfsTextScanner {
   virtual ~HdfsLzoTextScanner();
 
   // Implementation of HdfsScanner interface not inherited from HdsfTextScanner.
-  virtual Status Close();
+  virtual void Close();
 
   // This will read the header of the file, locate the index file and
   // then fire off the rest of the scan ranges.
