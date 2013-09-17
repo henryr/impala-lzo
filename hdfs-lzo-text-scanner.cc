@@ -19,15 +19,18 @@
 //   59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
 
 
+#include "hdfs-lzo-text-scanner.h"
+
 #include <hdfs.h>
 #include <dlfcn.h>
 #include <boost/algorithm/string.hpp>
-#include "hdfs-lzo-text-scanner.h"
+
 #include "exec/hdfs-scan-node.h"
 #include "exec/scanner-context.inline.h"
 #include "runtime/runtime-state.h"
 #include "runtime/hdfs-fs-cache.h"
 #include "util/debug-util.h"
+#include "util/error-util.h"
 #include "util/hdfs-util.h"
 
 #include "gen-cpp/Descriptors_types.h"
@@ -186,10 +189,7 @@ Status HdfsLzoTextScanner::ReadIndexFile() {
        index_filename.c_str(), O_RDONLY, 0, 0, 0);
 
   if (index_file == NULL) {
-    stringstream ss;
-    ss << AppendHdfsErrorMessage("Error while opening index file: ", index_filename);
-    state_->LogError(ss.str());
-    return Status(ss.str());
+    return Status(GetHdfsErrorMsg("Error while opening index file: ", index_filename));
   }
 
   // TODO: This should go through the I/O manager.
@@ -205,20 +205,14 @@ Status HdfsLzoTextScanner::ReadIndexFile() {
     }
   }
 
-  int close_stat  = hdfsCloseFile(connection, index_file);
+  int close_stat = hdfsCloseFile(connection, index_file);
 
   if (num_read == -1) {
-    stringstream ss;
-    ss << AppendHdfsErrorMessage("Error while reading index file: ", index_filename);
-    state_->LogError(ss.str());
-    return Status(ss.str());
+    return Status(GetHdfsErrorMsg("Error while reading index file: ", index_filename));
   }
 
   if (close_stat == -1) {
-    stringstream ss;
-    ss << AppendHdfsErrorMessage("Error while closing index file: ", index_filename);
-    state_->LogError(ss.str());
-    return Status(ss.str());
+    return Status(GetHdfsErrorMsg("Error while closing index file: ", index_filename));
   }
 
   return Status::OK;
