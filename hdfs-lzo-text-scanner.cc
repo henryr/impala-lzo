@@ -86,6 +86,8 @@ void HdfsLzoTextScanner::Close() {
   }
   scan_node_->ReleaseCodegenFn(THdfsFileFormat::TEXT, codegen_fn_);
   codegen_fn_ = NULL;
+
+  HdfsScanner::Close();
 }
 
 Status HdfsLzoTextScanner::ProcessSplit() {
@@ -96,6 +98,12 @@ Status HdfsLzoTextScanner::ProcessSplit() {
   if (header_ == NULL) {
     // This is the initial scan range just to parse the header
     only_parsing_header_ = true;
+
+    // Release our conjuncts so threads responsible for actually processing a split can
+    // use them.
+    scan_node_->ReleaseConjuncts(conjuncts_);
+    conjuncts_ = NULL;
+
     header_ = state_->obj_pool()->Add(new LzoFileHeader());
     // Parse the header and read the index file.
     RETURN_IF_ERROR(ReadHeader());
