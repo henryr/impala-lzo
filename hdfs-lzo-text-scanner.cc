@@ -80,7 +80,6 @@ void HdfsLzoTextScanner::Close() {
   AttachPool(block_buffer_pool_.get());
   AttachPool(boundary_mem_pool_.get());
   AddFinalRowBatch();
-  context_->Close();
   if (!only_parsing_header_) {
     scan_node_->RangeComplete(THdfsFileFormat::LZO_TEXT, THdfsCompression::NONE);
   }
