@@ -117,6 +117,7 @@ Status HdfsLzoTextScanner::ProcessSplit() {
   if (stream_->scan_range()->offset() == 0) {
     Status status;
     stream_->SkipBytes(header_->header_size_, &status);
+    RETURN_IF_ERROR(status);
   } else {
     DCHECK(!header_->offsets.empty());
     bool found_block;
