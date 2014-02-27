@@ -540,9 +540,9 @@ Status HdfsLzoTextScanner::ReadAndDecompressData() {
   uint8_t* compressed_data;
   int bytes_read;
   stream_->GetBytes(compressed_len, &compressed_data, &bytes_read, &status);
+  RETURN_IF_ERROR(status);
   DCHECK_EQ(compressed_len, bytes_read);
   eos_read_ = stream_->eosr();
-  RETURN_IF_ERROR(status);
 
   // Checksum the data.
   RETURN_IF_ERROR(Checksum(header_->input_checksum_type_,
