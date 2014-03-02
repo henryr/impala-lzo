@@ -146,7 +146,7 @@ Status HdfsLzoTextScanner::IssueInitialRanges(HdfsScanNode* scan_node,
     ScanRangeMetadata* metadata =
         reinterpret_cast<ScanRangeMetadata*>(files[i]->splits[0]->meta_data());
     DiskIoMgr::ScanRange* header_range = scan_node->AllocateScanRange(
-        files[i]->filename.c_str(), HEADER_SIZE, 0, metadata->partition_id, -1);
+        files[i]->filename.c_str(), HEADER_SIZE, 0, metadata->partition_id, -1, false);
     header_ranges.push_back(header_range);
   }
   RETURN_IF_ERROR(scan_node->AddDiskIoRanges(header_ranges));
@@ -169,7 +169,7 @@ Status HdfsLzoTextScanner::IssueFileRanges(const char* filename) {
       ScanRangeMetadata* metadata =
           reinterpret_cast<ScanRangeMetadata*>(file_desc->splits[0]->meta_data());
       DiskIoMgr::ScanRange* range = scan_node_->AllocateScanRange(
-          filename, file_desc->file_length, 0, metadata->partition_id, -1);
+          filename, file_desc->file_length, 0, metadata->partition_id, -1, false);
       ranges.push_back(range);
     }
     scan_node_->AddDiskIoRanges(ranges);
