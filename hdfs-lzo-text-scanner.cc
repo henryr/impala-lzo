@@ -82,10 +82,6 @@ void HdfsLzoTextScanner::Close() {
   if (!only_parsing_header_) {
     scan_node_->RangeComplete(THdfsFileFormat::TEXT, THdfsCompression::LZO);
   }
-  scan_node_->ReleaseCodegenFn(
-      THdfsFileFormat::TEXT, reinterpret_cast<void*>(write_tuples_fn_));
-  write_tuples_fn_ = NULL;
-
   HdfsScanner::Close();
 }
 
@@ -97,12 +93,6 @@ Status HdfsLzoTextScanner::ProcessSplit() {
   if (header_ == NULL) {
     // This is the initial scan range just to parse the header
     only_parsing_header_ = true;
-
-    // Release our conjuncts so threads responsible for actually processing a split can
-    // use them.
-    scan_node_->ReleaseConjuncts(conjuncts_);
-    conjuncts_ = NULL;
-
     header_ = state_->obj_pool()->Add(new LzoFileHeader());
     // Parse the header and read the index file.
     Status status = ReadHeader();
