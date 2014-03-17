@@ -80,8 +80,8 @@ HdfsLzoTextScanner::~HdfsLzoTextScanner() {
 }
 
 void HdfsLzoTextScanner::Close() {
-  AttachPool(block_buffer_pool_.get());
-  AttachPool(boundary_mem_pool_.get());
+  AttachPool(block_buffer_pool_.get(), false);
+  AttachPool(boundary_mem_pool_.get(), false);
   AddFinalRowBatch();
   if (!only_parsing_header_) {
     scan_node_->RangeComplete(THdfsFileFormat::LZO_TEXT, THdfsCompression::NONE);
@@ -124,6 +124,8 @@ Status HdfsLzoTextScanner::ProcessSplit() {
     scan_node_->SetFileMetadata(stream_->filename(), header_);
     return IssueFileRanges(stream_->filename());
   }
+  // Data is compressed so tuples do not directly reference data in the io buffers.
+  stream_->set_contains_tuple_data(false);
   only_parsing_header_ = false;
 
   Status status;
@@ -574,8 +576,9 @@ Status HdfsLzoTextScanner::ReadAndDecompressData() {
     return Status::OK;
   }
 
-  if (!stream_->compact_data()) {
-    AttachPool(block_buffer_pool_.get());
+  if (!scan_node_->requires_compaction() &&
+      !scan_node_->tuple_desc()->string_slots().empty()) {
+    AttachPool(block_buffer_pool_.get(), true);
     block_buffer_len_ = 0;
   }
 
