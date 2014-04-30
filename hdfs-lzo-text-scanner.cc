@@ -86,8 +86,9 @@ void HdfsLzoTextScanner::Close() {
   if (!only_parsing_header_) {
     scan_node_->RangeComplete(THdfsFileFormat::LZO_TEXT, THdfsCompression::NONE);
   }
-  scan_node_->ReleaseCodegenFn(THdfsFileFormat::TEXT, codegen_fn_);
-  codegen_fn_ = NULL;
+  scan_node_->ReleaseCodegenFn(
+      THdfsFileFormat::TEXT, reinterpret_cast<void*>(write_tuples_fn_));
+  write_tuples_fn_ = NULL;
 
   HdfsScanner::Close();
 }
