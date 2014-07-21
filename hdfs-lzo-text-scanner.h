@@ -84,7 +84,7 @@ extern "C" HdfsLzoTextScanner* GetLzoTextScanner(
 // This function is a wrapper for HdfsLzoTextScanner::IssueInitialRanges.
 // scan_node -- scan node for this scan
 // files -- files that are to be scanned.
-extern "C" Status IssueInitialRanges(
+extern "C" Status LzoIssueInitialRangesImpl(
     HdfsScanNode* scan_node, const std::vector<HdfsFileDesc*>& files);
 
 class HdfsLzoTextScanner : public HdfsTextScanner {
@@ -102,7 +102,7 @@ class HdfsLzoTextScanner : public HdfsTextScanner {
   // Issue the initial scan ranges for all lzo-text files. This reads the
   // file headers and then the reset of the file data will be issued from
   // ProcessScanRange.
-  static Status IssueInitialRanges(
+  static Status LzoIssueInitialRangesImpl(
       HdfsScanNode* scan_node, const std::vector<HdfsFileDesc*>& files);
 
  private:
@@ -111,9 +111,6 @@ class HdfsLzoTextScanner : public HdfsTextScanner {
     CHECK_CRC32,
     CHECK_ADLER
   };
-
-  // Suffix for index files.
-  const static std::string INDEX_SUFFIX;
 
   // Block size in bytes used by LZOP. The compressed blocks will be no bigger than this.
   const static int MAX_BLOCK_COMPRESSED_SIZE = (256 * 1024);
@@ -198,9 +195,7 @@ class HdfsLzoTextScanner : public HdfsTextScanner {
   // This is set when the scanner object is constructed.  Currently always true.
   // HDFS checksums the blocks from the disk to the client, so this is redundent.
   bool disable_checksum_;
-
-  // Time spent decompressing
-  RuntimeProfile::Counter* decompress_timer_;
 };
+
 }
 #endif

@@ -43,9 +43,6 @@ using namespace std;
 DEFINE_bool(disable_lzo_checksums, true,
     "Disable internal checksum checking for Lzo compressed files, defaults true");
 
-// Suffix for index file: hdfs-filename.index
-const string HdfsLzoTextScanner::INDEX_SUFFIX = ".index";
-
 // The magic byte sequence at the beginning of an LZOP file.
 static const uint8_t LZOP_MAGIC[9] =
     { 0x89, 0x4c, 0x5a, 0x4f, 0x00, 0x0d, 0x0a, 0x1a, 0x0a };
@@ -55,9 +52,9 @@ extern "C" HdfsLzoTextScanner* CreateLzoTextScanner(
   return new HdfsLzoTextScanner(scan_node, state);
 }
 
-extern "C" Status IssueInitialRanges(HdfsScanNode* scan_node,
+extern "C" Status LzoIssueInitialRangesImpl(HdfsScanNode* scan_node,
     const vector<HdfsFileDesc*>& files) {
-  return HdfsLzoTextScanner::IssueInitialRanges(scan_node, files);
+  return HdfsLzoTextScanner::LzoIssueInitialRangesImpl(scan_node, files);
 }
 
 // Macro to convert between ScannerContext errors to Status returns.
@@ -73,7 +70,6 @@ HdfsLzoTextScanner::HdfsLzoTextScanner(HdfsScanNode* scan_node, RuntimeState* st
       eos_read_(false),
       only_parsing_header_(false),
       disable_checksum_(FLAGS_disable_lzo_checksums) {
-  decompress_timer_ = ADD_TIMER(scan_node->runtime_profile(), "DecompressionTime");
 }
 
 HdfsLzoTextScanner::~HdfsLzoTextScanner() {
@@ -81,10 +77,10 @@ HdfsLzoTextScanner::~HdfsLzoTextScanner() {
 
 void HdfsLzoTextScanner::Close() {
   AttachPool(block_buffer_pool_.get(), false);
-  AttachPool(boundary_mem_pool_.get(), false);
+  AttachPool(data_buffer_pool_.get(), false);
   AddFinalRowBatch();
   if (!only_parsing_header_) {
-    scan_node_->RangeComplete(THdfsFileFormat::LZO_TEXT, THdfsCompression::NONE);
+    scan_node_->RangeComplete(THdfsFileFormat::TEXT, THdfsCompression::LZO);
   }
   scan_node_->ReleaseCodegenFn(
       THdfsFileFormat::TEXT, reinterpret_cast<void*>(write_tuples_fn_));
@@ -147,7 +143,7 @@ Status HdfsLzoTextScanner::ProcessSplit() {
   return Status::OK;
 }
 
-Status HdfsLzoTextScanner::IssueInitialRanges(HdfsScanNode* scan_node,
+Status HdfsLzoTextScanner::LzoIssueInitialRangesImpl(HdfsScanNode* scan_node,
     const vector<HdfsFileDesc*>& files) {
   vector<DiskIoMgr::ScanRange*> header_ranges;
   // Issue just the header range for each file.  When the header is complete,
@@ -155,7 +151,7 @@ Status HdfsLzoTextScanner::IssueInitialRanges(HdfsScanNode* scan_node,
   // up to 255 bytes of optional file name.
   for (int i = 0; i < files.size(); ++i) {
     // These files should be filtered by the planner.
-    DCHECK(!ends_with(files[i]->filename, INDEX_SUFFIX));
+    DCHECK(!ends_with(files[i]->filename, HdfsTextScanner::LZO_INDEX_SUFFIX));
 
     ScanRangeMetadata* metadata =
         reinterpret_cast<ScanRangeMetadata*>(files[i]->splits[0]->meta_data());
@@ -177,7 +173,7 @@ Status HdfsLzoTextScanner::IssueFileRanges(const char* filename) {
     for (int j = 0; j < splits.size(); ++j) {
       if (splits[j]->offset() != 0) {
         // Mark the other initial splits complete
-        scan_node_->RangeComplete(THdfsFileFormat::LZO_TEXT, THdfsCompression::NONE);
+        scan_node_->RangeComplete(THdfsFileFormat::TEXT, THdfsCompression::LZO);
         continue;
       }
       ScanRangeMetadata* metadata =
@@ -195,7 +191,7 @@ Status HdfsLzoTextScanner::IssueFileRanges(const char* filename) {
 
 Status HdfsLzoTextScanner::ReadIndexFile() {
   string index_filename(stream_->filename());
-  index_filename.append(INDEX_SUFFIX);
+  index_filename.append(HdfsTextScanner::LZO_INDEX_SUFFIX);
 
   hdfsFS connection = scan_node_->hdfs_connection();
 
