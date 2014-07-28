@@ -27,6 +27,11 @@ find_package(Lzo REQUIRED)
 # Locate the Thrift headers.
 find_package(Thrift REQUIRED)
 
+# find rapidjson headers
+find_package(RapidJson REQUIRED)
+include_directories(SYSTEM ${RAPIDJSON_INCLUDE_DIR})
+message(STATUS "RapidJson include dir: " ${RAPIDJSON_INCLUDE_DIR})
+
 add_definitions(-DHAVE_INTTYPES_H -DHAVE_NETINET_IN_H)
 
 # where to put generated libraries
@@ -42,7 +47,8 @@ include_directories($ENV{IMPALA_HOME}/thirdparty/glog-$ENV{IMPALA_GLOG_VERSION}/
 include_directories($ENV{IMPALA_HOME}/thirdparty/gflags-$ENV{IMPALA_GFLAGS_VERSION}/src)
 include_directories(${THRIFT_INCLUDE_DIR})
 
-message(STATUS "LZO lib: ${LZO_STATIC_LIB}")
+message(STATUS "LZO_LIB: ${LZO_LIB}")
+
 add_library(impalalzo SHARED
   hdfs-lzo-text-scanner.cc
 )
@@ -50,4 +56,3 @@ add_library(impalalzo SHARED
 target_link_libraries(impalalzo
   ${LZO_LIB}
 )
-
