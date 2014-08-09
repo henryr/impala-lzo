@@ -381,7 +381,7 @@ Status HdfsLzoTextScanner::Checksum(LzoChecksum type, const string& source,
 
 Status HdfsLzoTextScanner::ReadHeader() {
   uint8_t* magic;
-  int bytes_read;
+  int64_t bytes_read;
   Status status;
   // Read the header in. HEADER_SIZE over estimates the maximum header.
   RETURN_IF_FALSE(stream_->GetBytes(HEADER_SIZE, &magic, &bytes_read, &status));
@@ -538,7 +538,7 @@ Status HdfsLzoTextScanner::ReadAndDecompressData() {
 
   // Read in the compressed data
   uint8_t* compressed_data;
-  int bytes_read;
+  int64_t bytes_read;
   RETURN_IF_FALSE(
       stream_->GetBytes(compressed_len, &compressed_data, &bytes_read, &status));
   if (bytes_read == 0) {
