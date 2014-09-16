@@ -21,11 +21,29 @@ endif()
 
 SET(CMAKE_CXX_FLAGS "${CXX_COMMON_FLAGS} ${CMAKE_CXX_FLAGS}")
 
+# find boost headers and libs
+IF (DEFINED ENV{BOOST_ROOT})
+  # The casing and underscoring expected for these properties varies between
+  # versions of CMake. Multiple inconsistent versions may be present here
+  # intentionally to provide what a wide range of versions expects.
+  message(STATUS "Using boost from: " $ENV{BOOST_ROOT})
+  set(Boost_NO_SYSTEM_PATHS true)
+  set(BOOST_ROOT $ENV{BOOST_ROOT})
+  set(BOOST_LIBRARYDIR $ENV{BOOST_ROOT}/lib)
+  set(BOOST_INCLUDEDIR $ENV{BOOST_ROOT}/include)
+  set(Boost_INCLUDE_DIR ${BOOST_INCLUDEDIR})
+ENDIF (DEFINED ENV{BOOST_ROOT})
+
 # Locate the LZO compression library.
 find_package(Lzo REQUIRED)
 
 # Locate the Thrift headers.
 find_package(Thrift REQUIRED)
+
+# find rapidjson headers
+find_package(RapidJson REQUIRED)
+include_directories(SYSTEM ${RAPIDJSON_INCLUDE_DIR})
+message(STATUS "RapidJson include dir: " ${RAPIDJSON_INCLUDE_DIR})
 
 # find rapidjson headers
 find_package(RapidJson REQUIRED)
@@ -46,6 +64,7 @@ include_directories($ENV{IMPALA_HOME}/thirdparty/hadoop-$ENV{IMPALA_HADOOP_VERSI
 include_directories($ENV{IMPALA_HOME}/thirdparty/glog-$ENV{IMPALA_GLOG_VERSION}/src)
 include_directories($ENV{IMPALA_HOME}/thirdparty/gflags-$ENV{IMPALA_GFLAGS_VERSION}/src)
 include_directories(${THRIFT_INCLUDE_DIR})
+include_directories(${BOOST_INCLUDEDIR})
 
 message(STATUS "LZO_LIB: ${LZO_LIB}")
 
