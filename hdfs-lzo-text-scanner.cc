@@ -141,8 +141,8 @@ Status HdfsLzoTextScanner::LzoIssueInitialRangesImpl(HdfsScanNode* scan_node,
         reinterpret_cast<ScanRangeMetadata*>(files[i]->splits[0]->meta_data());
     int64_t header_size = min(static_cast<int64_t>(HEADER_SIZE), files[i]->file_length);
     DiskIoMgr::ScanRange* header_range = scan_node->AllocateScanRange(
-        files[i]->filename.c_str(), header_size, 0, metadata->partition_id, -1, false,
-        false);
+        files[i]->fs, files[i]->filename.c_str(), header_size, 0, metadata->partition_id,
+        -1, false, false);
     header_ranges.push_back(header_range);
   }
   RETURN_IF_ERROR(scan_node->AddDiskIoRanges(header_ranges));
@@ -165,8 +165,8 @@ Status HdfsLzoTextScanner::IssueFileRanges(const char* filename) {
       ScanRangeMetadata* metadata =
           reinterpret_cast<ScanRangeMetadata*>(file_desc->splits[0]->meta_data());
       DiskIoMgr::ScanRange* range = scan_node_->AllocateScanRange(
-          filename, file_desc->file_length, 0, metadata->partition_id, -1, false,
-          false);
+          file_desc->fs, filename, file_desc->file_length, 0, metadata->partition_id,
+          -1, false, false);
       ranges.push_back(range);
     }
     scan_node_->AddDiskIoRanges(ranges);
@@ -180,8 +180,7 @@ Status HdfsLzoTextScanner::ReadIndexFile() {
   string index_filename(stream_->filename());
   index_filename.append(HdfsTextScanner::LZO_INDEX_SUFFIX);
 
-  hdfsFS connection = scan_node_->hdfs_connection();
-
+  hdfsFS connection = stream_->scan_range()->fs();
   // If there is no index file we can read the file by starting at the beginning
   // and reading through to the end.
   if (hdfsExists(connection, index_filename.c_str()) != 0) {
