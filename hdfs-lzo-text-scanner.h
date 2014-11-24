@@ -189,9 +189,6 @@ class HdfsLzoTextScanner : public HdfsTextScanner {
   // True if the end of scan has been read.
   bool eos_read_;
 
-  // True if we are parsing the header for this scanner.
-  bool only_parsing_header_;
-
   // This is set when the scanner object is constructed.  Currently always true.
   // HDFS checksums the blocks from the disk to the client, so this is redundent.
   bool disable_checksum_;
