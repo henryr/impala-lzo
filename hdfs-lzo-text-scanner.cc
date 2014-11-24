@@ -68,7 +68,6 @@ HdfsLzoTextScanner::HdfsLzoTextScanner(HdfsScanNode* scan_node, RuntimeState* st
       block_buffer_len_(0),
       bytes_remaining_(0),
       eos_read_(false),
-      only_parsing_header_(false),
       disable_checksum_(FLAGS_disable_lzo_checksums) {
 }
 
@@ -77,12 +76,7 @@ HdfsLzoTextScanner::~HdfsLzoTextScanner() {
 
 void HdfsLzoTextScanner::Close() {
   AttachPool(block_buffer_pool_.get(), false);
-  AttachPool(data_buffer_pool_.get(), false);
-  AddFinalRowBatch();
-  if (!only_parsing_header_) {
-    scan_node_->RangeComplete(THdfsFileFormat::TEXT, THdfsCompression::LZO);
-  }
-  HdfsScanner::Close();
+  HdfsTextScanner::Close();
 }
 
 Status HdfsLzoTextScanner::ProcessSplit() {
