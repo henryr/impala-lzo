@@ -559,8 +559,7 @@ Status HdfsLzoTextScanner::ReadAndDecompressData() {
     return Status::OK;
   }
 
-  if (!scan_node_->requires_compaction() &&
-      !scan_node_->tuple_desc()->string_slots().empty()) {
+  if (!scan_node_->tuple_desc()->string_slots().empty()) {
     AttachPool(block_buffer_pool_.get(), true);
     block_buffer_len_ = 0;
   }
