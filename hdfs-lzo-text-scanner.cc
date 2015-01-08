@@ -139,8 +139,9 @@ Status HdfsLzoTextScanner::LzoIssueInitialRangesImpl(HdfsScanNode* scan_node,
 
     ScanRangeMetadata* metadata =
         reinterpret_cast<ScanRangeMetadata*>(files[i]->splits[0]->meta_data());
+    int64_t header_size = min(static_cast<int64_t>(HEADER_SIZE), files[i]->file_length);
     DiskIoMgr::ScanRange* header_range = scan_node->AllocateScanRange(
-        files[i]->filename.c_str(), HEADER_SIZE, 0, metadata->partition_id, -1, false,
+        files[i]->filename.c_str(), header_size, 0, metadata->partition_id, -1, false,
         false);
     header_ranges.push_back(header_range);
   }
