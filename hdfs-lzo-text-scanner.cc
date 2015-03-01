@@ -96,7 +96,11 @@ Status HdfsLzoTextScanner::ProcessSplit() {
       // hdfs-scan-node should include all the diagnostics related to the stream.
       // e.g. filename, file format, byte position, eosr, etc.
       ss << "Invalid lzo header information: " << stream_->filename();
+#ifdef STATUS_API_VERSION
+      status.AddDetail(ss.str());
+#else
       status.AddErrorMsg(ss.str());
+#endif
       return status;
     }
     RETURN_IF_ERROR(ReadIndexFile());
@@ -118,7 +122,11 @@ Status HdfsLzoTextScanner::ProcessSplit() {
     status = FindFirstBlock(&found_block);
     if (!status.ok() || !found_block) {
       if (state_->abort_on_error()) return status;
+#ifdef STATUS_API_VERSION
+      if (!status.ok()) state_->LogError(status.msg());
+#else
       if (!status.ok()) state_->LogError(status.GetErrorMsg());
+#endif
       return Status::OK;
     }
   }
@@ -266,7 +274,11 @@ Status HdfsLzoTextScanner::ReadData() {
     status = FindFirstBlock(&found_block);
     if (!status.ok() || !found_block) {
       if (state_->abort_on_error()) RETURN_IF_ERROR(status);
+#ifdef STATUS_API_VERSION
+      if (!status.ok()) state_->LogError(status.msg());
+#else
       if (!status.ok()) state_->LogError(status.GetErrorMsg());
+#endif
 
       // Just force to end of file, we cannot do more recovery if we can't find
       // the next block
@@ -382,7 +394,11 @@ Status HdfsLzoTextScanner::ReadHeader() {
     stringstream ss;
     ss << "Invalid LZOP_MAGIC: '"
        << ReadWriteUtil::HexDump(magic, sizeof(LZOP_MAGIC)) << "'" << endl;
+#ifdef STATUS_API_VERSION
+    status.AddDetail(ss.str());
+#else
     status.AddErrorMsg(ss.str());
+#endif
   }
 
   uint8_t* header = magic + sizeof(LZOP_MAGIC);
@@ -393,7 +409,11 @@ Status HdfsLzoTextScanner::ReadHeader() {
     stringstream ss;
     ss << "Compressed with later version of lzop: " << version
        << " must be less than: " << LZOP_VERSION;
+#ifdef STATUS_API_VERSION
+    status.AddDetail(ss.str());
+#else
     status.AddErrorMsg(ss.str());
+#endif
   }
   h_ptr += sizeof(int16_t);
 
@@ -402,7 +422,11 @@ Status HdfsLzoTextScanner::ReadHeader() {
     stringstream ss;
     ss << "Compressed with incompatible lzo version: " << version
        << "must be at least: " << MIN_ZOP_VERSION;
+#ifdef STATUS_API_VERSION
+    status.AddDetail(ss.str());
+#else
     status.AddErrorMsg(ss.str());
+#endif
   }
   h_ptr += sizeof(int16_t);
 
@@ -412,7 +436,11 @@ Status HdfsLzoTextScanner::ReadHeader() {
     stringstream ss;
     ss << "Compressed with imp incompatible lzo version: " << neededversion
        << "must be at no more than: " << LZOP_VERSION;
+#ifdef STATUS_API_VERSION
+    status.AddDetail(ss.str());
+#else
     status.AddErrorMsg(ss.str());
+#endif
   }
   h_ptr += sizeof(int16_t);
 
@@ -420,7 +448,11 @@ Status HdfsLzoTextScanner::ReadHeader() {
   if (method < 1 || method > 3) {
     stringstream ss;
     ss << "Invalid compression method: " << method;
+#ifdef STATUS_API_VERSION
+    status.AddDetail(ss.str());
+#else
     status.AddErrorMsg(ss.str());
+#endif
   }
   uint8_t level = *h_ptr++;
 
@@ -434,7 +466,11 @@ Status HdfsLzoTextScanner::ReadHeader() {
   if (flags & (F_RESERVED | F_MULTIPART | F_H_FILTER)) {
     stringstream ss;
     ss << "Unsupported flags: " << flags;
+#ifdef STATUS_API_VERSION
+    status.AddDetail(ss.str());
+#else
     status.AddErrorMsg(ss.str());
+#endif
   }
   h_ptr += sizeof(int32_t);
 
@@ -459,7 +495,11 @@ Status HdfsLzoTextScanner::ReadHeader() {
     stringstream ss;
     ss << "Invalid header checksum: " << computed_checksum
        << " expected: " << expected_checksum;
+#ifdef STATUS_API_VERSION
+    status.AddDetail(ss.str());
+#else
     status.AddErrorMsg(ss.str());
+#endif
   }
   h_ptr += sizeof(int32_t);
 
