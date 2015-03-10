@@ -268,6 +268,11 @@ Status HdfsLzoTextScanner::ReadData() {
     Status status = ReadAndDecompressData();
 
     if (status.ok() || state_->abort_on_error()) return status;
+#ifdef STATUS_API_VERSION
+    if (!status.ok()) state_->LogError(status.msg());
+#else
+    if (!status.ok()) state_->LogError(status.GetErrorMsg());
+#endif
 
     // On error try to skip forward to the next block.
     bool found_block;
