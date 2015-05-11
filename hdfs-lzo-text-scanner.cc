@@ -153,7 +153,9 @@ Status HdfsLzoTextScanner::LzoIssueInitialRangesImpl(HdfsScanNode* scan_node,
         -1, false, false, files[i]->mtime);
     header_ranges.push_back(header_range);
   }
-  RETURN_IF_ERROR(scan_node->AddDiskIoRanges(header_ranges));
+  // The files' ranges will be submitted once the header range completes, in
+  // IssueFileRanges().  So pass 0 to indicate that no file has been added completely.
+  RETURN_IF_ERROR(scan_node->AddDiskIoRanges(header_ranges, 0));
   return Status::OK;
 }
 
@@ -177,7 +179,9 @@ Status HdfsLzoTextScanner::IssueFileRanges(const char* filename) {
           -1, false, false, file_desc->mtime);
       ranges.push_back(range);
     }
-    scan_node_->AddDiskIoRanges(ranges);
+    // Add all the 0-offset ranges for this file and indicate that the file has no
+    // remaining ranges by passing num_files_queued = 1.
+    scan_node_->AddDiskIoRanges(ranges, 1);
   } else {
     scan_node_->AddDiskIoRanges(file_desc);
   }
