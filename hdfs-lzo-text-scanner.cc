@@ -127,12 +127,12 @@ Status HdfsLzoTextScanner::ProcessSplit() {
 #else
       if (!status.ok()) state_->LogError(status.GetErrorMsg());
 #endif
-      return Status::OK;
+      return Status::OK();
     }
   }
 
   RETURN_IF_ERROR(HdfsTextScanner::ProcessSplit());
-  return Status::OK;
+  return Status::OK();
 }
 
 Status HdfsLzoTextScanner::LzoIssueInitialRangesImpl(HdfsScanNode* scan_node,
@@ -156,7 +156,7 @@ Status HdfsLzoTextScanner::LzoIssueInitialRangesImpl(HdfsScanNode* scan_node,
   // The files' ranges will be submitted once the header range completes, in
   // IssueFileRanges().  So pass 0 to indicate that no file has been added completely.
   RETURN_IF_ERROR(scan_node->AddDiskIoRanges(header_ranges, 0));
-  return Status::OK;
+  return Status::OK();
 }
 
 Status HdfsLzoTextScanner::IssueFileRanges(const char* filename) {
@@ -185,7 +185,7 @@ Status HdfsLzoTextScanner::IssueFileRanges(const char* filename) {
   } else {
     scan_node_->AddDiskIoRanges(file_desc);
   }
-  return Status::OK;
+  return Status::OK();
 }
 
 Status HdfsLzoTextScanner::ReadIndexFile() {
@@ -198,7 +198,7 @@ Status HdfsLzoTextScanner::ReadIndexFile() {
   if (hdfsExists(connection, index_filename.c_str()) != 0) {
     LOG(WARNING) << "No index file for: " << stream_->filename()
                  << ". Split scans are not possible.";
-    return Status::OK;
+    return Status::OK();
   }
 
   hdfsFile index_file = hdfsOpenFile(connection,
@@ -234,7 +234,7 @@ Status HdfsLzoTextScanner::ReadIndexFile() {
     return Status(GetHdfsErrorMsg("Error while closing index file: ", index_filename));
   }
 
-  return Status::OK;
+  return Status::OK();
 }
 
 Status HdfsLzoTextScanner::FindFirstBlock(bool* found) {
@@ -249,14 +249,14 @@ Status HdfsLzoTextScanner::FindFirstBlock(bool* found) {
     // In this case, the scan range started past the end of the last block. Skip
     // this as the previous scan range is responsible for it.
     *found = false;
-    return Status::OK;
+    return Status::OK();
   }
 
   if (*pos > offset + stream_->scan_range()->len()) {
     // In this case, the scan range does not contain the start of any blocks.
     // This scan range is then not responsible for any bytes.
     *found = false;
-    return Status::OK;
+    return Status::OK();
   }
 
   VLOG_ROW << "First Block: " << stream_->filename()
@@ -293,13 +293,13 @@ Status HdfsLzoTextScanner::ReadData() {
       // the next block
       eos_read_ = true;
       bytes_remaining_ = 0;
-      return Status::OK;
+      return Status::OK();
     }
   } while (!stream_->eosr());
 
   // Reset the scanner state.
   HdfsTextScanner::ResetScanner();
-  return Status::OK;
+  return Status::OK();
 }
 
 Status HdfsLzoTextScanner::FillByteBuffer(bool* eosr, int num_bytes) {
@@ -308,7 +308,7 @@ Status HdfsLzoTextScanner::FillByteBuffer(bool* eosr, int num_bytes) {
 
   if (stream_->eof()) {
     *eosr = true;
-    return Status::OK;
+    return Status::OK();
   }
 
   // Figure out if we have enough data and read more if necessary.
@@ -350,19 +350,19 @@ Status HdfsLzoTextScanner::FillByteBuffer(bool* eosr, int num_bytes) {
     VLOG_ROW << "Returning eosr for: " << stream_->filename()
              << " @" << stream_->file_offset();
   }
-  return Status::OK;
+  return Status::OK();
 }
 
 Status HdfsLzoTextScanner::Checksum(LzoChecksum type, const string& source,
     int expected_checksum, uint8_t* buffer, int length) {
 
-  if (disable_checksum_) return Status::OK;
+  if (disable_checksum_) return Status::OK();
 
   // Do the checksum if requested.
   int32_t calculated_checksum;
   switch (type) {
     case CHECK_NONE:
-      return Status::OK;
+      return Status::OK();
 
     case CHECK_CRC32:
       calculated_checksum = lzo_crc32(CRC32_INIT_VALUE, buffer, length);
@@ -383,7 +383,7 @@ Status HdfsLzoTextScanner::Checksum(LzoChecksum type, const string& source,
        << " expected: " << expected_checksum << " got: " << calculated_checksum;
     return Status(ss.str());
   }
-  return Status::OK;
+  return Status::OK();
 }
 
 Status HdfsLzoTextScanner::ReadHeader() {
@@ -530,7 +530,7 @@ Status HdfsLzoTextScanner::ReadHeader() {
   RETURN_IF_ERROR(status);
 
   header_->header_size_ = h_ptr - magic;
-  return Status::OK;
+  return Status::OK();
 }
 
 Status HdfsLzoTextScanner::ReadAndDecompressData() {
@@ -543,7 +543,7 @@ Status HdfsLzoTextScanner::ReadAndDecompressData() {
   if (uncompressed_len == 0) {
     DCHECK(stream_->eosr());
     eos_read_ = true;
-    return Status::OK;
+    return Status::OK();
   }
 
   // Read the compressed len
@@ -585,7 +585,7 @@ Status HdfsLzoTextScanner::ReadAndDecompressData() {
       ss << "Last lzo block missing. Expected block size: " << compressed_len;
       return Status(ss.str());
     }
-    return Status::OK;
+    return Status::OK();
   } else if (compressed_len != bytes_read) {
     stringstream ss;
     ss << "Corrupt lzo file. Compressed block should have length '"
@@ -605,7 +605,7 @@ Status HdfsLzoTextScanner::ReadAndDecompressData() {
   if (compressed_len == uncompressed_len) {
     block_buffer_ptr_ = compressed_data;
     bytes_remaining_ = uncompressed_len;
-    return Status::OK;
+    return Status::OK();
   }
 
   if (!scan_node_->tuple_desc()->string_slots().empty()) {
@@ -644,7 +644,7 @@ Status HdfsLzoTextScanner::ReadAndDecompressData() {
   eos_read_ = stream_->eosr();
   VLOG_ROW << "LZO decompressed " << uncompressed_len << " bytes from "
            << stream_->filename() << " @" << stream_->file_offset() - compressed_len;
-  return Status::OK;
+  return Status::OK();
 }
 
 }
