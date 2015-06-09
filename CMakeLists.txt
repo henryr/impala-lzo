@@ -2,7 +2,7 @@
 
 cmake_minimum_required(VERSION 2.6)
 
-set(CMAKE_MODULE_PATH cmake_modules)
+set(CMAKE_MODULE_PATH cmake_modules $ENV{IMPALA_HOME}/cmake_modules)
 SET(CXX_COMMON_FLAGS "-Wall -Wno-sign-compare -pthread")
 SET(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} -DBOOST_DATE_TIME_POSIX_TIME_STD_CONFIG")
 SET(CXX_FLAGS_DEBUG "-ggdb -Wall")
@@ -20,6 +20,25 @@ elseif ("${CMAKE_BUILD_TYPE}" STREQUAL "RELEASE")
 endif()
 
 SET(CMAKE_CXX_FLAGS "${CXX_COMMON_FLAGS} ${CMAKE_CXX_FLAGS}")
+
+# Given a package name and the version number extracted from the environment, construct
+# the package_ROOT variable.
+function(set_dep_root NAME)
+  string(TOLOWER ${NAME} NAME_LOWER)
+  string(REPLACE "_" "-" NAME_LOWER ${NAME_LOWER})
+  set(VAL_NAME "IMPALA_${NAME}_VERSION")
+  set(${NAME}_ROOT $ENV{IMPALA_TOOLCHAIN}/${NAME_LOWER}-$ENV{${VAL_NAME}} PARENT_SCOPE)
+endfunction()
+
+if (IMPALA_TOOLCHAIN)
+  set(ENV{BOOST_ROOT} "$ENV{IMPALA_TOOLCHAIN}/boost-$ENV{IMPALA_BOOST_VERSION}")
+  set(Boost_USE_STATIC_LIBS ON)
+  set(Boost_USE_STATIC_RUNTIME ON)
+  set_dep_root(GFLAGS)
+  set_dep_root(GLOG)
+  set_dep_root(RAPIDJSON)
+  set_dep_root(THRIFT)
+endif()
 
 # find boost headers and libs
 IF (DEFINED ENV{BOOST_ROOT})
@@ -39,10 +58,11 @@ find_package(Lzo REQUIRED)
 
 # Locate the Thrift headers.
 find_package(Thrift REQUIRED)
+include_directories(${THRIFT_INCLUDE_DIR})
 
 # find rapidjson headers
 find_package(RapidJson REQUIRED)
-include_directories(SYSTEM ${RAPIDJSON_INCLUDE_DIR})
+include_directories(${RAPIDJSON_INCLUDE_DIR})
 message(STATUS "RapidJson include dir: " ${RAPIDJSON_INCLUDE_DIR})
 
 add_definitions(-DHAVE_INTTYPES_H -DHAVE_NETINET_IN_H)
@@ -54,11 +74,15 @@ set(LIBRARY_OUTPUT_PATH "${BUILD_OUTPUT_ROOT_DIRECTORY}")
 include_directories(${LZO_INCLUDE_DIR})
 include_directories($ENV{IMPALA_HOME}/be/src)
 include_directories($ENV{IMPALA_HOME}/be/generated-sources)
-include_directories($ENV{IMPALA_HOME}/thirdparty)
+
+find_package(GLog REQUIRED)
+include_directories(${GLOG_INCLUDE_DIR})
+
+find_package(GFlags REQUIRED)
+include_directories(${GFLAGS_INCLUDE_DIR})
+
+include_directories($ENV{IMPALA_HOME}/thirdparty) # Needed for squeasel
 include_directories($ENV{IMPALA_HOME}/thirdparty/hadoop-$ENV{IMPALA_HADOOP_VERSION}/include)
-include_directories($ENV{IMPALA_HOME}/thirdparty/glog-$ENV{IMPALA_GLOG_VERSION}/src)
-include_directories($ENV{IMPALA_HOME}/thirdparty/gflags-$ENV{IMPALA_GFLAGS_VERSION}/src)
-include_directories(${THRIFT_INCLUDE_DIR})
 include_directories(${BOOST_INCLUDEDIR})
 
 message(STATUS "LZO_LIB: ${LZO_LIB}")
