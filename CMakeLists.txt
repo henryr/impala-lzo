@@ -4,9 +4,12 @@ cmake_minimum_required(VERSION 2.6)
 
 set(CMAKE_MODULE_PATH cmake_modules $ENV{IMPALA_HOME}/cmake_modules)
 SET(CXX_COMMON_FLAGS "-Wall -Wno-sign-compare -pthread")
+# Suppress unused local typedef warnings on gcc and clang
+SET(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} -Wno-unused-local-typedefs")
+SET(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} -Wno-unused-local-typedef")
 SET(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} -DBOOST_DATE_TIME_POSIX_TIME_STD_CONFIG")
 SET(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} -std=c++14")
-SET(CXX_FLAGS_DEBUG "-ggdb -Wall")
+SET(CXX_FLAGS_DEBUG "-ggdb")
 SET(CXX_FLAGS_RELEASE "-O3 -g -DNDEBUG -Wno-strict-aliasing")
 
 # if no build build type is specified, default to debug builds

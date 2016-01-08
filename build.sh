@@ -27,7 +27,12 @@ popd
 # Delete CMakeCache.txt because it doesn't save much time and can cause compile errors
 # when changing branches.
 rm -rf CMakeCache.txt CMakeFiles
-cmake -DCMAKE_TOOLCHAIN_FILE=${IMPALA_HOME}/cmake_modules/toolchain.cmake
 
-#Build
-"${MAKE_CMD:-make}" -j$(nproc)
+MAKE_CMD=${MAKE_CMD:-make}
+CMAKE_FLAGS=
+if [[ "$MAKE_CMD" = "ninja" ]]; then
+  CMAKE_FLAGS+=" -GNinja"
+fi
+
+cmake ${CMAKE_FLAGS} -DCMAKE_TOOLCHAIN_FILE=${IMPALA_HOME}/cmake_modules/toolchain.cmake
+"${MAKE_CMD:-make}"
