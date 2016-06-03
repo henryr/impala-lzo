@@ -83,7 +83,7 @@ find_package(GFlags REQUIRED)
 include_directories(${GFLAGS_INCLUDE_DIR})
 
 include_directories($ENV{IMPALA_HOME}/be/src/thirdparty) # Needed for squeasel
-include_directories($ENV{IMPALA_HOME}/thirdparty/hadoop-$ENV{IMPALA_HADOOP_VERSION}/include)
+include_directories($ENV{HADOOP_HOME}/include)
 include_directories(${BOOST_INCLUDEDIR})
 
 message(STATUS "LZO_LIB: ${LZO_LIB}")
