@@ -70,7 +70,8 @@ class HdfsLzoTextScanner;
 
 // Used to verify that this library was built against the expected Impala version when the
 // library is loaded via dlopen.
-extern "C" const char* GetImpalaBuildVersion() { return IMPALA_BUILD_VERSION; }
+// The function called resides in common/version.h.
+extern "C" const char* GetImpalaBuildVersion() { return GetDaemonBuildVersion(); }
 
 // The two functions below are wrappers for calling methods of HdfsLzoTextScanner
 // when the library is loaded via dlopen.
