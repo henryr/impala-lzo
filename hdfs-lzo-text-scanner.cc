@@ -49,7 +49,7 @@ static const uint8_t LZOP_MAGIC[9] =
 
 extern "C" HdfsLzoTextScanner* CreateLzoTextScanner(
     HdfsScanNode* scan_node, RuntimeState* state) {
-  return new HdfsLzoTextScanner(scan_node, state);
+  return new HdfsLzoTextScanner(scan_node, state, true);
 }
 
 extern "C" Status LzoIssueInitialRangesImpl(HdfsScanNode* scan_node,
@@ -62,8 +62,9 @@ extern "C" Status LzoIssueInitialRangesImpl(HdfsScanNode* scan_node,
 
 namespace impala {
 
-HdfsLzoTextScanner::HdfsLzoTextScanner(HdfsScanNode* scan_node, RuntimeState* state)
-    : HdfsTextScanner(scan_node, state),
+HdfsLzoTextScanner::HdfsLzoTextScanner(HdfsScanNode* scan_node, RuntimeState* state,
+    bool add_batches_to_queue)
+    : HdfsTextScanner(scan_node, state, add_batches_to_queue),
       block_buffer_pool_(new MemPool(scan_node->mem_tracker())),
       block_buffer_len_(0),
       bytes_remaining_(0),
@@ -74,9 +75,9 @@ HdfsLzoTextScanner::HdfsLzoTextScanner(HdfsScanNode* scan_node, RuntimeState* st
 HdfsLzoTextScanner::~HdfsLzoTextScanner() {
 }
 
-void HdfsLzoTextScanner::Close() {
+void HdfsLzoTextScanner::Close(RowBatch* row_batch) {
   AttachPool(block_buffer_pool_.get(), false);
-  HdfsTextScanner::Close();
+  HdfsTextScanner::Close(row_batch);
 }
 
 Status HdfsLzoTextScanner::ProcessSplit() {

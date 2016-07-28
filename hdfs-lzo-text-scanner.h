@@ -90,11 +90,12 @@ extern "C" Status LzoIssueInitialRangesImpl(
 
 class HdfsLzoTextScanner : public HdfsTextScanner {
  public:
-  HdfsLzoTextScanner(HdfsScanNode* scan_node, RuntimeState* state);
+  HdfsLzoTextScanner(HdfsScanNode* scan_node, RuntimeState* state,
+      bool add_batches_to_queue);
   virtual ~HdfsLzoTextScanner();
 
   // Implementation of HdfsScanner interface not inherited from HdsfTextScanner.
-  virtual void Close();
+  virtual void Close(RowBatch* row_batch);
 
   // This will read the header of the file, locate the index file and
   // then fire off the rest of the scan ranges.
