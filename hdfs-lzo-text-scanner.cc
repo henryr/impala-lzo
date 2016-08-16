@@ -404,11 +404,7 @@ Status HdfsLzoTextScanner::ReadHeader() {
     stringstream ss;
     ss << "Invalid LZOP_MAGIC: '"
        << ReadWriteUtil::HexDump(magic, sizeof(LZOP_MAGIC)) << "'" << endl;
-#ifdef STATUS_API_VERSION
-    status.AddDetail(ss.str());
-#else
-    status.AddErrorMsg(ss.str());
-#endif
+    return Status(ss.str());
   }
 
   uint8_t* header = magic + sizeof(LZOP_MAGIC);
@@ -419,11 +415,7 @@ Status HdfsLzoTextScanner::ReadHeader() {
     stringstream ss;
     ss << "Compressed with later version of lzop: " << version
        << " must be less than: " << LZOP_VERSION;
-#ifdef STATUS_API_VERSION
-    status.AddDetail(ss.str());
-#else
-    status.AddErrorMsg(ss.str());
-#endif
+    return Status(ss.str());
   }
   h_ptr += sizeof(int16_t);
 
@@ -432,11 +424,7 @@ Status HdfsLzoTextScanner::ReadHeader() {
     stringstream ss;
     ss << "Compressed with incompatible lzo version: " << version
        << "must be at least: " << MIN_ZOP_VERSION;
-#ifdef STATUS_API_VERSION
-    status.AddDetail(ss.str());
-#else
-    status.AddErrorMsg(ss.str());
-#endif
+    return Status(ss.str());
   }
   h_ptr += sizeof(int16_t);
 
@@ -446,11 +434,7 @@ Status HdfsLzoTextScanner::ReadHeader() {
     stringstream ss;
     ss << "Compressed with imp incompatible lzo version: " << neededversion
        << "must be at no more than: " << LZOP_VERSION;
-#ifdef STATUS_API_VERSION
-    status.AddDetail(ss.str());
-#else
-    status.AddErrorMsg(ss.str());
-#endif
+    return Status(ss.str());
   }
   h_ptr += sizeof(int16_t);
 
@@ -458,11 +442,7 @@ Status HdfsLzoTextScanner::ReadHeader() {
   if (method < 1 || method > 3) {
     stringstream ss;
     ss << "Invalid compression method: " << method;
-#ifdef STATUS_API_VERSION
-    status.AddDetail(ss.str());
-#else
-    status.AddErrorMsg(ss.str());
-#endif
+    return Status(ss.str());
   }
   uint8_t level = *h_ptr++;
 
@@ -476,11 +456,7 @@ Status HdfsLzoTextScanner::ReadHeader() {
   if (flags & (F_RESERVED | F_MULTIPART | F_H_FILTER)) {
     stringstream ss;
     ss << "Unsupported flags: " << flags;
-#ifdef STATUS_API_VERSION
-    status.AddDetail(ss.str());
-#else
-    status.AddErrorMsg(ss.str());
-#endif
+    return Status(ss.str());
   }
   h_ptr += sizeof(int32_t);
 
@@ -505,11 +481,7 @@ Status HdfsLzoTextScanner::ReadHeader() {
     stringstream ss;
     ss << "Invalid header checksum: " << computed_checksum
        << " expected: " << expected_checksum;
-#ifdef STATUS_API_VERSION
-    status.AddDetail(ss.str());
-#else
-    status.AddErrorMsg(ss.str());
-#endif
+    return Status(ss.str());
   }
   h_ptr += sizeof(int32_t);
 
