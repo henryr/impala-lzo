@@ -80,18 +80,17 @@ extern "C" const char* GetImpalaBuildVersion() { return GetDaemonBuildVersion();
 // scan_node -- scan node that is creating this scanner.
 // state -- runtime state for this scanner.
 extern "C" HdfsLzoTextScanner* GetLzoTextScanner(
-    HdfsScanNode* scan_node, RuntimeState* state);
+    HdfsScanNodeBase* scan_node, RuntimeState* state);
 
 // This function is a wrapper for HdfsLzoTextScanner::IssueInitialRanges.
 // scan_node -- scan node for this scan
 // files -- files that are to be scanned.
 extern "C" Status LzoIssueInitialRangesImpl(
-    HdfsScanNode* scan_node, const std::vector<HdfsFileDesc*>& files);
+    HdfsScanNodeBase* scan_node, const std::vector<HdfsFileDesc*>& files);
 
 class HdfsLzoTextScanner : public HdfsTextScanner {
  public:
-  HdfsLzoTextScanner(HdfsScanNode* scan_node, RuntimeState* state,
-      bool add_batches_to_queue);
+  HdfsLzoTextScanner(HdfsScanNodeBase* scan_node, RuntimeState* state);
   virtual ~HdfsLzoTextScanner();
 
   // Implementation of HdfsScanner interface not inherited from HdsfTextScanner.
@@ -105,7 +104,7 @@ class HdfsLzoTextScanner : public HdfsTextScanner {
   // file headers and then the reset of the file data will be issued from
   // ProcessScanRange.
   static Status LzoIssueInitialRangesImpl(
-      HdfsScanNode* scan_node, const std::vector<HdfsFileDesc*>& files);
+      HdfsScanNodeBase* scan_node, const std::vector<HdfsFileDesc*>& files);
 
  private:
   enum LzoChecksum {

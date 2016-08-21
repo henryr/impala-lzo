@@ -25,6 +25,7 @@
 #include <dlfcn.h>
 #include <boost/algorithm/string.hpp>
 
+#include "exec/hdfs-scan-node-base.h"
 #include "exec/hdfs-scan-node.h"
 #include "exec/scanner-context.inline.h"
 #include "runtime/runtime-state.h"
@@ -48,11 +49,11 @@ static const uint8_t LZOP_MAGIC[9] =
     { 0x89, 0x4c, 0x5a, 0x4f, 0x00, 0x0d, 0x0a, 0x1a, 0x0a };
 
 extern "C" HdfsLzoTextScanner* CreateLzoTextScanner(
-    HdfsScanNode* scan_node, RuntimeState* state) {
-  return new HdfsLzoTextScanner(scan_node, state, true);
+    HdfsScanNodeBase* scan_node, RuntimeState* state) {
+  return new HdfsLzoTextScanner(scan_node, state);
 }
 
-extern "C" Status LzoIssueInitialRangesImpl(HdfsScanNode* scan_node,
+extern "C" Status LzoIssueInitialRangesImpl(HdfsScanNodeBase* scan_node,
     const vector<HdfsFileDesc*>& files) {
   return HdfsLzoTextScanner::LzoIssueInitialRangesImpl(scan_node, files);
 }
@@ -62,9 +63,8 @@ extern "C" Status LzoIssueInitialRangesImpl(HdfsScanNode* scan_node,
 
 namespace impala {
 
-HdfsLzoTextScanner::HdfsLzoTextScanner(HdfsScanNode* scan_node, RuntimeState* state,
-    bool add_batches_to_queue)
-    : HdfsTextScanner(scan_node, state, add_batches_to_queue),
+HdfsLzoTextScanner::HdfsLzoTextScanner(HdfsScanNodeBase* scan_node, RuntimeState* state)
+    : HdfsTextScanner(scan_node, state),
       block_buffer_pool_(new MemPool(scan_node->mem_tracker())),
       block_buffer_len_(0),
       bytes_remaining_(0),
@@ -84,7 +84,7 @@ Status HdfsLzoTextScanner::ProcessSplit() {
   stream_->set_read_past_size_cb(&HdfsLzoTextScanner::MaxBlockCompressedSize);
 
   header_ = reinterpret_cast<LzoFileHeader*>(
-      scan_node_->GetFileMetadata(stream_->filename()));
+      static_cast<HdfsScanNode*>(scan_node_)->GetFileMetadata(stream_->filename()));
   if (header_ == NULL) {
     // This is the initial scan range just to parse the header
     only_parsing_header_ = true;
@@ -107,7 +107,7 @@ Status HdfsLzoTextScanner::ProcessSplit() {
     RETURN_IF_ERROR(ReadIndexFile());
 
     // Header is parsed, set the metadata in the scan node.
-    scan_node_->SetFileMetadata(stream_->filename(), header_);
+    static_cast<HdfsScanNode*>(scan_node_)->SetFileMetadata(stream_->filename(), header_);
     return IssueFileRanges(stream_->filename());
   }
   // Data is compressed so tuples do not directly reference data in the io buffers.
@@ -136,7 +136,7 @@ Status HdfsLzoTextScanner::ProcessSplit() {
   return Status::OK();
 }
 
-Status HdfsLzoTextScanner::LzoIssueInitialRangesImpl(HdfsScanNode* scan_node,
+Status HdfsLzoTextScanner::LzoIssueInitialRangesImpl(HdfsScanNodeBase* scan_node,
     const vector<HdfsFileDesc*>& files) {
   vector<DiskIoMgr::ScanRange*> header_ranges;
   // Issue just the header range for each file.  When the header is complete,
