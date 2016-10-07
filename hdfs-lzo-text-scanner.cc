@@ -210,21 +210,36 @@ Status HdfsLzoTextScanner::ReadIndexFile() {
   }
 
   // TODO: This should go through the I/O manager.
-  int read_size = 10 * 1024;
-  uint8_t buffer[read_size];
-  int bytes_read;
+  constexpr uint16_t TARGET_READ_SIZE = 10 * 1024;
+  uint8_t buffer[TARGET_READ_SIZE];
+  uint16_t bytes_read;
+  uint8_t unprocessed_bytes = 0;
 
-  while ((bytes_read = hdfsRead(connection, index_file, buffer, read_size)) > 0) {
-    if (bytes_read % sizeof(int64_t) != 0) {
-      bytes_read = -1;
-      break;
-    }
-    for (uint8_t* bp = buffer; bp < buffer + bytes_read; bp += sizeof(int64_t)) {
+  // We expect that the file size be a multiple of sizeof(uint64_t). However, we may not
+  // always get a buffer of a size that is a multiple of sizeof(uint64_t) from hdfsRead().
+  // We carry over the (buffer size % sizeof(uint64_t)) from every hdfsRead() every time
+  // and process it in the next iteration of the loop so as to not over look some bytes.
+  while ((bytes_read = hdfsRead(connection, index_file,
+      buffer + unprocessed_bytes, TARGET_READ_SIZE - unprocessed_bytes)) > 0) {
+    bytes_read += unprocessed_bytes;
+    unprocessed_bytes = bytes_read % sizeof(uint64_t);
+
+    // Round down to the nearset multiple of size(uint64_t).
+    uint16_t read_until = bytes_read - unprocessed_bytes;
+    // Interpret bytes as a series of 64-bit offsets.
+    for (uint8_t* bp = buffer; bp < buffer + read_until; bp += sizeof(uint64_t)) {
       int64_t offset = ReadWriteUtil::GetInt<uint64_t>(bp);
       header_->offsets.push_back(offset);
     }
+    // Move over the remaining 0-7 bytes that haven't been processed to the beginning of
+    // the buffer.
+    DCHECK_GT(read_until, unprocessed_bytes);
+    for (uint8_t i = 0; i < unprocessed_bytes; ++i) {
+      buffer[i] = buffer[read_until + i];
+    }
   }
 
+  // If there are any left over bytes, they are deliberately ignored.
   int close_stat = hdfsCloseFile(connection, index_file);
 
   if (bytes_read == -1) {
