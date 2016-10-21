@@ -233,7 +233,6 @@ Status HdfsLzoTextScanner::ReadIndexFile() {
     }
     // Move over the remaining 0-7 bytes that haven't been processed to the beginning of
     // the buffer.
-    DCHECK_GT(read_until, unprocessed_bytes);
     for (uint8_t i = 0; i < unprocessed_bytes; ++i) {
       buffer[i] = buffer[read_until + i];
     }
