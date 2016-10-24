@@ -31,15 +31,13 @@ function(set_dep_root NAME)
   set(${NAME}_ROOT $ENV{IMPALA_TOOLCHAIN}/${NAME_LOWER}-$ENV{${VAL_NAME}} PARENT_SCOPE)
 endfunction()
 
-if (IMPALA_TOOLCHAIN)
-  set(ENV{BOOST_ROOT} "$ENV{IMPALA_TOOLCHAIN}/boost-$ENV{IMPALA_BOOST_VERSION}")
-  set(Boost_USE_STATIC_LIBS ON)
-  set(Boost_USE_STATIC_RUNTIME ON)
-  set_dep_root(GFLAGS)
-  set_dep_root(GLOG)
-  set_dep_root(RAPIDJSON)
-  set_dep_root(THRIFT)
-endif()
+set(ENV{BOOST_ROOT} "$ENV{IMPALA_TOOLCHAIN}/boost-$ENV{IMPALA_BOOST_VERSION}")
+set(Boost_USE_STATIC_LIBS ON)
+set(Boost_USE_STATIC_RUNTIME ON)
+set_dep_root(GFLAGS)
+set_dep_root(GLOG)
+set_dep_root(RAPIDJSON)
+set_dep_root(THRIFT)
 
 # find boost headers and libs
 IF (DEFINED ENV{BOOST_ROOT})
@@ -83,7 +81,7 @@ find_package(GFlags REQUIRED)
 include_directories(${GFLAGS_INCLUDE_DIR})
 
 include_directories($ENV{IMPALA_HOME}/be/src/thirdparty) # Needed for squeasel
-include_directories($ENV{HADOOP_HOME}/include)
+include_directories($ENV{HADOOP_INCLUDE_DIR})
 include_directories(${BOOST_INCLUDEDIR})
 
 message(STATUS "LZO_LIB: ${LZO_LIB}")
