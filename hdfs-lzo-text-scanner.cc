@@ -76,7 +76,8 @@ HdfsLzoTextScanner::~HdfsLzoTextScanner() {
 }
 
 void HdfsLzoTextScanner::Close(RowBatch* row_batch) {
-  AttachPool(block_buffer_pool_.get(), false);
+  // Ignore status - we are tearing down the scanner at this point regardless.
+  (void)AttachPool(block_buffer_pool_.get(), false);
   HdfsTextScanner::Close(row_batch);
 }
 
@@ -97,11 +98,7 @@ Status HdfsLzoTextScanner::ProcessSplit() {
       // hdfs-scan-node should include all the diagnostics related to the stream.
       // e.g. filename, file format, byte position, eosr, etc.
       ss << "Invalid lzo header information: " << stream_->filename();
-#ifdef STATUS_API_VERSION
       status.AddDetail(ss.str());
-#else
-      status.AddErrorMsg(ss.str());
-#endif
       return status;
     }
     RETURN_IF_ERROR(ReadIndexFile());
@@ -122,12 +119,7 @@ Status HdfsLzoTextScanner::ProcessSplit() {
     bool found_block;
     status = FindFirstBlock(&found_block);
     if (!status.ok() || !found_block) {
-      if (state_->abort_on_error()) return status;
-#ifdef STATUS_API_VERSION
-      if (!status.ok()) state_->LogError(status.msg());
-#else
-      if (!status.ok()) state_->LogError(status.GetErrorMsg());
-#endif
+      if (!status.ok()) RETURN_IF_ERROR(state_->LogOrReturnError(status.msg()));
       return Status::OK();
     }
   }
@@ -285,24 +277,14 @@ Status HdfsLzoTextScanner::FindFirstBlock(bool* found) {
 Status HdfsLzoTextScanner::ReadData() {
   do {
     Status status = ReadAndDecompressData();
-
-    if (status.ok() || state_->abort_on_error()) return status;
-#ifdef STATUS_API_VERSION
-    if (!status.ok()) state_->LogError(status.msg());
-#else
-    if (!status.ok()) state_->LogError(status.GetErrorMsg());
-#endif
+    if (status.ok()) return Status::OK();
+    RETURN_IF_ERROR(state_->LogOrReturnError(status.msg()));
 
     // On error try to skip forward to the next block.
     bool found_block;
     status = FindFirstBlock(&found_block);
     if (!status.ok() || !found_block) {
-      if (state_->abort_on_error()) RETURN_IF_ERROR(status);
-#ifdef STATUS_API_VERSION
-      if (!status.ok()) state_->LogError(status.msg());
-#else
-      if (!status.ok()) state_->LogError(status.GetErrorMsg());
-#endif
+      if (!status.ok()) RETURN_IF_ERROR(state_->LogOrReturnError(status.msg()));
 
       // Just force to end of file, we cannot do more recovery if we can't find
       // the next block
@@ -596,7 +578,7 @@ Status HdfsLzoTextScanner::ReadAndDecompressData() {
   }
 
   if (!scan_node_->tuple_desc()->string_slots().empty()) {
-    AttachPool(block_buffer_pool_.get(), true);
+    RETURN_IF_ERROR(AttachPool(block_buffer_pool_.get(), true));
     block_buffer_len_ = 0;
   }
 
