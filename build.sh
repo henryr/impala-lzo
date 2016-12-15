@@ -24,6 +24,9 @@ source ./bin/impala-config.sh
 popd
 
 # Regenerate CMake files to use the Impala toolchain
+# Delete CMakeCache.txt because it doesn't save much time and can cause compile errors
+# when changing branches.
+rm -rf CMakeCache.txt CMakeFiles
 cmake -DCMAKE_TOOLCHAIN_FILE=${IMPALA_HOME}/cmake_modules/toolchain.cmake
 
 #Build
