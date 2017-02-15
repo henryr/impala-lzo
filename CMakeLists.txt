@@ -40,6 +40,7 @@ set(Boost_USE_STATIC_RUNTIME ON)
 set_dep_root(GFLAGS)
 set_dep_root(GLOG)
 set_dep_root(RAPIDJSON)
+set_dep_root(PROTOBUF)
 set_dep_root(THRIFT)
 
 # find boost headers and libs
@@ -82,6 +83,10 @@ include_directories(${GLOG_INCLUDE_DIR})
 
 find_package(GFlags REQUIRED)
 include_directories(${GFLAGS_INCLUDE_DIR})
+
+find_package(Protobuf REQUIRED)
+include_directories(SYSTEM ${PROTOBUF_INCLUDE_DIR})
+message(STATUS "Protobuf include dir: " ${PROTOBUF_INCLUDE_DIR})
 
 include_directories($ENV{IMPALA_HOME}/be/src/thirdparty) # Needed for squeasel
 include_directories($ENV{HADOOP_INCLUDE_DIR})
