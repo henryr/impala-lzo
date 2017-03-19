@@ -204,7 +204,7 @@ Status HdfsLzoTextScanner::ReadIndexFile() {
   // TODO: This should go through the I/O manager.
   constexpr uint16_t TARGET_READ_SIZE = 10 * 1024;
   uint8_t buffer[TARGET_READ_SIZE];
-  uint16_t bytes_read;
+  tSize bytes_read;
   uint8_t unprocessed_bytes = 0;
 
   // We expect that the file size be a multiple of sizeof(uint64_t). However, we may not
