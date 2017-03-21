@@ -14,7 +14,7 @@ SET(CXX_FLAGS_RELEASE "-O3 -g -DNDEBUG -Wno-strict-aliasing")
 
 # if no build build type is specified, default to debug builds
 if (NOT CMAKE_BUILD_TYPE)
-  set(CMAKE_BUILD_TYPE Debug)
+  set(CMAKE_BUILD_TYPE DEBUG)
 endif(NOT CMAKE_BUILD_TYPE)
 
 if ("${CMAKE_BUILD_TYPE}" STREQUAL "DEBUG")
